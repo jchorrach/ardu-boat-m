@@ -109,11 +109,11 @@ void setup()
 {
   Serial.begin(9600);   // Inicializa monitor Serie
   GSM.begin(19200);     // Inicializa Modem GSM
-  GSMPower();           // Activa shiled GSM
   lcd.init();           // Inicializa el lcd 
   lcd.backlight();
   lcd.home ();               // Primera linea y columna del display
-  lcd.print("ARDU-BOAT-M");  
+  lcd.print("ARDU-BOAT-M");
+  GSMPower();                // Activa shiled GSM
   lcd.setCursor ( 0, 1 );    // Segunda linea del display
   lcd.print ("Ok");  
   pinMode(PUMP, OUTPUT);
@@ -336,8 +336,9 @@ void GSMPower()
   delay(2000);
   digitalWrite(9,LOW);
   delay(4000);
-  GSM.print("AT+CNMI=2,2,0,0,0"); // Visualizar SMS entrantes
+  GSM.println("AT+CNMI=2,2,0,0,0"); // Visualizar SMS entrantes
   ProcessGSM();
+  delay(200);
 }
 
 
