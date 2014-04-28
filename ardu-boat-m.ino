@@ -42,8 +42,8 @@ long page_d_milis;           // Tiempo para que se cambie pagina el LCD
 //
 #define MODEM_HEADER "$"  // Reenvio de comando al modem GSM
 #define MODEM_TIME_CHK 14000 // ms de funcionamiento en modo automatico
-#define TLF_CALL "+***********" // Telefono permitido requerimiento SMS
-#define TLF_SMS "+***********" // Telefono al que se envian los SMS
+#define TLF_CALL "639635751" // Telefono permitido requerimiento SMS
+#define TLF_SMS "+34639635751" // Telefono al que se envian los SMS
 SoftwareSerial GSM(7, 8); // Usa sensores digitales 7RX y 8TX
 String buffer;          // buffer array para recibir datos
 long chk_m_milis = 0;   // Tiempo en que deberia pararse automaticamente la bomba
@@ -339,6 +339,7 @@ void GSMPower()
   GSM.println("AT+CNMI=2,2,0,0,0"); // Visualizar SMS entrantes
   ProcessGSM();
   delay(200);
+  chk_m_milis = millis() + MODEM_TIME_CHK; // Proximo chequeo red GSM
 }
 
 
