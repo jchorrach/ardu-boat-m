@@ -27,7 +27,7 @@
 // LCD1602 controlado via adaptador I2C
 //
 #define LCD_TIME_PAG 3500   // ms para cambio de pagina display LCD
-LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 byte num_dis = 0;            // Pagina que se enseña en el display
 long page_d_milis;           // Tiempo para que se cambie pagina el LCD
 
@@ -107,10 +107,10 @@ long fin_time_starts; // Tiempo de inicio de evaluacin marchas bomba
 
 void setup()
 {
-  Serial.begin(9600);    // Inicializa monitor Serie
+  Serial.begin(9600);   // Inicializa monitor Serie
   GSM.begin(19200);     // Inicializa Modem GSM
   GSMPower();           // Activa shiled GSM
-  lcd.begin(16,2);           // Inicializa el lcd 
+  lcd.init();           // Inicializa el lcd 
   lcd.backlight();
   lcd.home ();               // Primera linea y columna del display
   lcd.print("ARDU-BOAT-M");  
@@ -196,7 +196,10 @@ void SMSAlert()
   GSM.println("AT+CMGF=1");
   ProcessGSM();
   delay(300);
-  GSM.println("AT+CMGS=\""+TLF_SMS+"\"");
+  comm_msg = "AT+CMGS=\"";
+  comm_msg.concat(TLF_SMS);
+  comm_msg.concat("\"");
+  GSM.println(comm_msg);
   ProcessGSM();
   delay(300);
   GSM.println("Demasiados achiques!");
@@ -230,7 +233,10 @@ void ProcessGSM()
       c = GSM.read();
       buffer = buffer + c;  // Escribe caracteres en el buffer
       // Revisa si se trata una llamada entrante ->
-      if (buffer.indexOf("+CLIP: \""+TLF_CALL+"\"")>0)
+      comm_msg = "+CLIP: \"";
+      comm_msg.concat(TLF_CALL);
+      comm_msg.concat("\"");
+      if (buffer.indexOf(comm_msg)>0)
       {
         SMSEstado();
       } // <- Revisa si se trata una llamada entrante
@@ -283,7 +289,10 @@ void SMSEstado()
   GSM.println("AT+CMGF=1");
   ProcessGSM();
   delay(300);
-  GSM.println("AT+CMGS=\""+TLF_SMS+"\"");
+  comm_msg = "AT+CMGS=\"";
+  comm_msg.concat(TLF_SMS);
+  comm_msg.concat("\"");
+  GSM.println(comm_msg);
   ProcessGSM();
   delay(300);
   comm_msg = "B.Motor: ";
@@ -509,6 +518,7 @@ String checkBatt(String batt)
   {
   	return "12.32";
   } else if (batt == "servicio")
+  {
   	return "12.38";
   }
   return "0.0";  
