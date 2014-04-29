@@ -11,7 +11,7 @@
 *********************************************************
 */
 
-#include <Time.h>
+// #include <Time.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
@@ -32,14 +32,18 @@ byte num_dis = 0;            // Pagina que se enseña en el display
 long page_d_milis;           // Tiempo para que se cambie pagina el LCD
 
 
-#define TIME_HEADER "T"  // Tag del comando Fecha/hora
-#define TIME_MSG_LEN 11  // Longitud del comando Fecha/hora
+//#define TIME_HEADER "T"  // Tag del comando Fecha/hora
+//#define TIME_MSG_LEN 11  // Longitud del comando Fecha/hora
 
 //--------------------------------------------------------------
 // Comunicaciones GSM
 //
 // SIM900 shield
 //
+// GA -> pulsa el boton power en la shield GSM
+//
+#define GSM_HEADER "G"  // Tag del comado Bomba achique
+#define GSM_MSG_LEN 2   // Longitud del comando Bomba achique
 #define MODEM_HEADER "$"  // Reenvio de comando al modem GSM
 #define MODEM_TIME_CHK 14000 // ms de funcionamiento en modo automatico
 #define TLF_CALL "639635751" // Telefono permitido requerimiento SMS
@@ -120,7 +124,7 @@ void setup()
   pinMode(WATER, INPUT);
   digitalWrite(WATER, LOW);  // Habilita internal pullup
   digitalWrite(PUMP, HIGH);
-  setTime(12,0,0,1,1,12);    // Fecha por defecto sin sincronizar
+  //setTime(12,0,0,1,1,12);    // Fecha por defecto sin sincronizar
   
   flag_a = 0;                // Bomba automatica desactivada
   fin_time_starts = PUMP_TIME_MAX_START;  // Tiempo limite para evaluar marchas automaticas
@@ -164,6 +168,8 @@ void debug(String msg)
 
 String formatDate(){
   // Formatea la fecha/hora "hh:mi:ss dd/mm/yy"
+  return " ";
+/*  
   String fecFmt = "";
   fecFmt.concat(lpadDigits(hour())+":");
   fecFmt.concat(lpadDigits(minute())+":");
@@ -172,6 +178,7 @@ String formatDate(){
   fecFmt = fecFmt + lpadDigits(month())+"/";
   fecFmt = fecFmt + year();
   return fecFmt;
+  */
 }
 
 
@@ -242,13 +249,15 @@ void ProcessGSM()
       } // <- Revisa si se trata una llamada entrante
     }
     // Revisa mensaje de operador conectado ->
-    if (buffer.indexOf("+COPS: 0)")>0)      
+    if (buffer.indexOf("+COPS: 0)")>0)
+    {    
       if (buffer.length()>10)
         netGSM = 1;
       else
         netGSM = 0;    
+    }
     // <-- Revisa mensaje de operador conectado
-    
+    Serial.print(">");
     Serial.print(buffer);  // Imprime mensaje en el puerto Serie
   }
 
@@ -426,14 +435,28 @@ void processCommand(String cmd) {
       
     }// <- Comando reset alarmas
     
-    // Comando para el modem GSM
+    // Comando para el modem GSM ->
     if (cmd.indexOf(MODEM_HEADER)==0)
     {
       int i = cmd.indexOf('#');
       GSM.println(cmd.substring(0,i));
       ProcessGSM();
       delay(200);
-    }
+    }// <- Comando para el modem GSM
+    
+    // Comando para shield GSM ->
+    if (cmd.indexOf(GSM_HEADER)==0)
+    {
+      char c = cmd[1];
+      
+      if (c == 'A') // Acciones ->
+      {
+        GSMPower();
+      }
+      
+    }// <- Comando para shield GSM
+    
+
 }
    
   
