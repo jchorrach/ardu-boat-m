@@ -100,9 +100,18 @@ int waterState = 0; // Estado del sensor boya
 byte flag_a = 0;     // Si 0 sin activacion 1 inicio bomba si 2 esperando duracion para apagar
 long stop_b_milis;   // Tiempo en que deberia pararse automaticamente la bomba
 byte num_starts = 0; // Conteo de marchas automaticas bomba
+
+//---------------------------------------------------------------
+// Lectura de tension de las baterias
+//
+//
+#define VBATS 0; // Pin analogico para leer tension bat. servicio
+#define VBATM 1; // Pin analogico para leer tension bat. motor
+
+//--------------------------------------------------------------
+
 String debug_msg;    // Mensaje de debug
 String comm_msg;     // Mensaje de comunicaciones
-//--------------------------------------------------------------
 
 char c_string[20]; // String que contendra el comando recibido
 int sindex = 0;    // Indice del proximo caracter en el string
@@ -122,7 +131,7 @@ void setup()
   lcd.print ("Ok");  
   pinMode(PUMP, OUTPUT);
   pinMode(WATER, INPUT);
-  digitalWrite(WATER, LOW);  // Habilita internal pullup
+  digitalWrite(WATER, HIGH);  // Habilita internal pullup
   digitalWrite(PUMP, HIGH);
   //setTime(12,0,0,1,1,12);    // Fecha por defecto sin sincronizar
   
@@ -234,7 +243,9 @@ void ProcessGSM()
   
   if (GSM.available())  // Verifica si existe mensaje del modem GSM
   {
+    String st;
     buffer = "";
+    int i;
     while(GSM.available()) // Leer caracteres del mensaje del modem
     {
       c = GSM.read();
@@ -249,14 +260,16 @@ void ProcessGSM()
       } // <- Revisa si se trata una llamada entrante
     }
     // Revisa mensaje de operador conectado ->
-    if (buffer.indexOf("+COPS: 0)")>0)
+    i = buffer.indexOf("+COPS: 0");
+    if (i>-1)
     {    
-      if (buffer.length()>10)
+      st = buffer.substring(i,buffer.length());
+       if (st.length()>16)
         netGSM = 1;
       else
         netGSM = 0;    
-    }
-    // <-- Revisa mensaje de operador conectado
+    }    // <-- Revisa mensaje de operador conectado
+
     Serial.print(">");
     Serial.print(buffer);  // Imprime mensaje en el puerto Serie
   }
@@ -539,12 +552,18 @@ void autoPump(){
 
 String checkBatt(String batt)
 {
+  int s;
+  float v;
   if (batt == "motor")
   {
   	return "12.32";
   } else if (batt == "servicio")
   {
-  	return "12.38";
+        s = analogRead(0);
+        v = (s * 0.0048875)*3.875;
+        Serial.print("Voltaje:");
+        Serial.println(v);
+  	return String(s, DEC);
   }
   return "0.0";  
 }
