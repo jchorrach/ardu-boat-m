@@ -105,8 +105,9 @@ byte num_starts = 0; // Conteo de marchas automaticas bomba
 // Lectura de tension de las baterias
 //
 //
-#define VBATS 0; // Pin analogico para leer tension bat. servicio
-#define VBATM 1; // Pin analogico para leer tension bat. motor
+#define VBAT_S 0        // Pin analogico para leer tension bat. servicio
+#define VBAT_M 1        // Pin analogico para leer tension bat. motor
+#define RATIO_VDIV 3.875 // Ratio del divisor de tension 
 
 //--------------------------------------------------------------
 
@@ -558,13 +559,17 @@ String checkBatt(String batt)
   float v;
   if (batt == "motor")
   {
-  	return "12.32";
+    s = analogRead(VBAT_S);
+    v = (s * 0.004882813)*RATIO_VDIV;
+    Serial.print("Voltaje:");
+    Serial.println(v);
+  	return String(s, DEC);
   } else if (batt == "servicio")
   {
-        s = analogRead(0);
-        v = (s * 0.0048875)*3.875;
-        Serial.print("Voltaje:");
-        Serial.println(v);
+    s = analogRead(VBAT_S);
+    v = (s * 0.004882813)*RATIO_VDIV;
+    Serial.print("Voltaje:");
+    Serial.println(v);
   	return String(s, DEC);
   }
   return "0.0";  
