@@ -324,17 +324,19 @@ void SMSEstado()
   delay(300);
   comm_msg = "B.Serv.: ";
   comm_msg.concat(checkBatt("servicio"));
+  comm_msg.concat(checkBatt(" "));
   GSM.println(comm_msg);
   ProcessGSM();
   delay(300);
   if (digitalRead(WATER)==LOW)
-    GSM.println("Sentina VACIA");
+    GSM.println("Sentina VACIA ");
   else
-    GSM.println("Sentina LLENA");
+    GSM.println("Sentina LLENA ");
   ProcessGSM();
   delay(300);
   comm_msg = "Achiques: ";
   comm_msg.concat(num_starts);
+  comm_msg.concat(" ");
   GSM.print(comm_msg);
   ProcessGSM();
   delay(300);
