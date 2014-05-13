@@ -559,7 +559,7 @@ String checkBatt(String batt)
   float v;
   if (batt == "motor")
   {
-    s = analogRead(VBAT_S);
+    s = analogRead(VBAT_M);
     v = (s * 0.004882813)*RATIO_VDIV;
     Serial.print("Voltaje:");
     Serial.println(v);
