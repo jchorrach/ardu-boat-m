@@ -641,12 +641,21 @@ void LCDStatus()
 
 void status()
 {
-  
+  char temp[10];
+  String tempAsString;
+  float val;
+
   comm_msg = "Bat. Motor: ";
-  comm_msg.concat(checkBatt("motor"));
+  val = checkBatt("motor")
+  dtostrf(val,1,2,temp);
+  tempAsString = String(temp);
+  comm_msg.concat(tempAsString);
   comm_msg.concat("\n\r");
   comm_msg.concat("Bat. Servicio: ");
-  comm_msg.concat(checkBatt("servicio"));
+  val = checkBatt("servicio")
+  dtostrf(val,1,2,temp);
+  tempAsString = String(temp);
+  comm_msg.concat(tempAsString);
   comm_msg.concat("\n\r");
   if (digitalRead(WATER)==LOW)
     comm_msg.concat("Sentina: vacia\n\r");
