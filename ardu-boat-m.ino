@@ -318,15 +318,21 @@ void SMSEstado()
   GSM.println(comm_msg);
   ProcessGSM();
   delay(300);
-  comm_msg = "B.Motor: ";
-  comm_msg.concat(checkBatt("motor"));
-  GSM.println(comm_msg);
+  //comm_msg = "B.Motor: ";
+  GSM.print("B.Motor: ");
+  //comm_msg.concat(checkBatt("motor"));
+  GSM.print(checkBatt("motor"));
+  //GSM.println(comm_msg);
+  GSM.println(" ");
   ProcessGSM();
   delay(300);
-  comm_msg = "B.Serv.: ";
-  comm_msg.concat(checkBatt("servicio"));
-  comm_msg.concat(checkBatt(" "));
-  GSM.println(comm_msg);
+  //comm_msg = "B.Serv.: ";
+  GSM.print("B.Serv.: ");
+  //comm_msg.concat();
+  GSM.print(checkBatt("servicio"));
+  //comm_msg.concat(checkBatt(" "));
+  //GSM.println(comm_msg);
+  GSM.println(" ");
   ProcessGSM();
   delay(300);
   if (digitalRead(WATER)==LOW)
@@ -553,7 +559,7 @@ void autoPump(){
 
 //-> TO DO Leer valor analgico tension bateria
 
-String checkBatt(String batt)
+float checkBatt(String batt)
 {
   int s;
   float v;
@@ -563,16 +569,16 @@ String checkBatt(String batt)
     v = (s * 0.004882813)*RATIO_VDIV;
     Serial.print("Voltaje:");
     Serial.println(v);
-  	return String(s, DEC);
+    return v;
   } else if (batt == "servicio")
   {
     s = analogRead(VBAT_S);
     v = (s * 0.004882813)*RATIO_VDIV;
     Serial.print("Voltaje:");
     Serial.println(v);
-  	return String(s, DEC);
+    return v;
   }
-  return "0.0";  
+  return 0.0;  
 }
 
 //
