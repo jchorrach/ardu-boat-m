@@ -53,8 +53,8 @@ SoftwareSerial GSM(7, 8); // Usa sensores digitales 7RX y 8TX
 String buffer;          // buffer array para recibir datos
 long chk_m_milis = 0;   // Tiempo en que deberia pararse automaticamente la bomba
 byte netGSM = 0;        // Indica si hay conexion de red GSM (0 No, 1 Si)
-byte flag_SMSAlert = 0; // Si 1 entonces ya se ha enviado SMSAlert
-
+byte flag_SMSAlert1 = 0; // Si 1 entonces ya se ha enviado SMSAlert1 de sentina
+byte flag_SMSAlert2 = 0; // Si 1 entonces ya se ha enviado SMSAlert1 de voltaje
 
 //--------------------------------------------------------------
 // Setup
@@ -108,6 +108,7 @@ byte num_starts = 0; // Conteo de marchas automaticas bomba
 //
 #define VBATS 0 // Pin analogico para leer tension bat. servicio
 #define VBATM 1 // Pin analogico para leer tension bat. motor
+#define MIN_VOL 12.1 // Valor de alarma para voltaje bajo
 
 //--------------------------------------------------------------
 
@@ -203,13 +204,11 @@ String lpadDigits(int digits){
 }
 
 //
-// Comunicaciones GSM
+// Comunicaciones GSM >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //
 
-void SMSAlert()
+void SMSAlert(int alert)
 {
-  if (flag_SMSAlert == 0)
-  {
   GSM.println("AT+CMGF=1");
   ProcessGSM();
   delay(300);
@@ -219,19 +218,32 @@ void SMSAlert()
   GSM.println(comm_msg);
   ProcessGSM();
   delay(300);
-  GSM.println("Demasiados achiques!");
-  ProcessGSM();
-  delay(300);
-  comm_msg = " Achiques: ";
-  comm_msg.concat(num_starts);
-  GSM.print(comm_msg);
+
+  if (flag_SMSAlert1 == 0 and alert == 1)
+  {
+    GSM.println("Demasiados achiques!");
+    ProcessGSM();
+    delay(300);
+    comm_msg = " Achiques: ";
+    comm_msg.concat(num_starts);
+    GSM.print(comm_msg);
+    flag_SMSAlert1 = 1;
+  } else if (flag_SMSAlert2 == 0 and alert == 2)
+  {
+    GSM.println("Voltaje bateria bajo!");
+//    ProcessGSM();
+//    delay(300);
+//    comm_msg = " Achiques: ";
+//    comm_msg.concat(num_starts);
+//    GSM.print(comm_msg);
+    flag_SMSAlert2 = 1;
+  }
   ProcessGSM();
   delay(300);
   GSM.println((char)26);//ASCII para ctrl+z
   ProcessGSM();
   delay(500);  
-  flag_SMSAlert = 1;
-  }
+
 }
 
 //
@@ -385,6 +397,10 @@ void reciveCommand(){
  }
 }
 
+//
+// Comunicaciones GSM <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+//
+
 
 //
 //  Procesar comando recibido
@@ -443,8 +459,8 @@ void processCommand(String cmd) {
       
       if (c == 'A') // Acciones ->
       {
-        num_starts = 0;    // Resetea contador bomba
-        flag_SMSAlert = 0; // Habilitab envio SMSAlert
+        num_starts = 0;     // Resetea contador bomba
+        flag_SMSAlert1 = 0; // Habilitab envio SMSAlert1
       }
       
     }// <- Comando reset alarmas
@@ -514,7 +530,7 @@ void autoPump(){
         debug(debug_msg);
         comm_msg = debug_msg;
         sendAlert(comm_msg);
-        SMSAlert();
+        SMSAlert(1);
         flag_a = 0; // Impide marcha bomba
         digitalWrite(PUMP, HIGH);
         return;
@@ -567,9 +583,13 @@ String checkBatt(String batt)
   }
   v = (s * 0.0048875)*3.875;
   
+  if (v < MIN_VOL)
+  {
+    SMSAlert(2); // Alerta voltaje bajo 
+  }
+  
   Serial.println(v);
   return dtostrf(v,3,1,buff);
-	//return String(s, DEC);
 }
 
 //
