@@ -12,6 +12,7 @@
 */
 
 // #include <Time.h>
+#include <stdlib.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
@@ -105,9 +106,8 @@ byte num_starts = 0; // Conteo de marchas automaticas bomba
 // Lectura de tension de las baterias
 //
 //
-#define VBAT_S 0        // Pin analogico para leer tension bat. servicio
-#define VBAT_M 1        // Pin analogico para leer tension bat. motor
-#define RATIO_VDIV 3.875 // Ratio del divisor de tension 
+#define VBATS 0 // Pin analogico para leer tension bat. servicio
+#define VBATM 1 // Pin analogico para leer tension bat. motor
 
 //--------------------------------------------------------------
 
@@ -318,32 +318,24 @@ void SMSEstado()
   GSM.println(comm_msg);
   ProcessGSM();
   delay(300);
-  //comm_msg = "B.Motor: ";
-  GSM.print("B.Motor: ");
-  //comm_msg.concat(checkBatt("motor"));
-  GSM.print(checkBatt("motor"));
-  //GSM.println(comm_msg);
-  GSM.println(" ");
+  comm_msg = "B.Motor: ";
+  comm_msg.concat(checkBatt("motor"));
+  GSM.println(comm_msg);
   ProcessGSM();
   delay(300);
-  //comm_msg = "B.Serv.: ";
-  GSM.print("B.Serv.: ");
-  //comm_msg.concat();
-  GSM.print(checkBatt("servicio"));
-  //comm_msg.concat(checkBatt(" "));
-  //GSM.println(comm_msg);
-  GSM.println(" ");
+  comm_msg = "B.Serv.: ";
+  comm_msg.concat(checkBatt("servicio"));
+  GSM.println(comm_msg);
   ProcessGSM();
   delay(300);
   if (digitalRead(WATER)==LOW)
-    GSM.println("Sentina VACIA ");
+    GSM.println("Sentina VACIA");
   else
-    GSM.println("Sentina LLENA ");
+    GSM.println("Sentina LLENA");
   ProcessGSM();
   delay(300);
   comm_msg = "Achiques: ";
   comm_msg.concat(num_starts);
-  comm_msg.concat(" ");
   GSM.print(comm_msg);
   ProcessGSM();
   delay(300);
@@ -559,26 +551,25 @@ void autoPump(){
 
 //-> TO DO Leer valor analgico tension bateria
 
-float checkBatt(String batt)
+String checkBatt(String batt)
 {
   int s;
   float v;
+  char buff[10];
   if (batt == "motor")
   {
-    s = analogRead(VBAT_M);
-    v = (s * 0.004882813)*RATIO_VDIV;
-    Serial.print("Voltaje:");
-    Serial.println(v);
-    return v;
+        s = analogRead(VBATM);
+        Serial.print("Voltaje Motor:");
   } else if (batt == "servicio")
   {
-    s = analogRead(VBAT_S);
-    v = (s * 0.004882813)*RATIO_VDIV;
-    Serial.print("Voltaje:");
-    Serial.println(v);
-    return v;
+        s = analogRead(VBATS);
+        Serial.print("Voltaje Servicio:");
   }
-  return 0.0;  
+  v = (s * 0.0048875)*3.875;
+  
+  Serial.println(v);
+  return dtostrf(v,3,1,buff);
+	//return String(s, DEC);
 }
 
 //
@@ -641,21 +632,12 @@ void LCDStatus()
 
 void status()
 {
-  char temp[10];
-  String tempAsString;
-  float val;
-
+  
   comm_msg = "Bat. Motor: ";
-  val = checkBatt("motor")
-  dtostrf(val,1,2,temp);
-  tempAsString = String(temp);
-  comm_msg.concat(tempAsString);
+  comm_msg.concat(checkBatt("motor"));
   comm_msg.concat("\n\r");
   comm_msg.concat("Bat. Servicio: ");
-  val = checkBatt("servicio")
-  dtostrf(val,1,2,temp);
-  tempAsString = String(temp);
-  comm_msg.concat(tempAsString);
+  comm_msg.concat(checkBatt("servicio"));
   comm_msg.concat("\n\r");
   if (digitalRead(WATER)==LOW)
     comm_msg.concat("Sentina: vacia\n\r");
