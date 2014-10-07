@@ -461,6 +461,7 @@ String checkBatt(String batt)
   
   if (v < MIN_VOL)
   {
+    debug(batt + " voltaje bajo !!", 2);
     SMSAlert(2); // Alerta voltaje bajo 
   }
   debug_msg.concat(dtostrf(v,3,1,buff));
@@ -671,19 +672,19 @@ void processCommand(String cmd) {
 //
 void debug(String msg, int tipo)
 {
-    if (INFO_ENABLED and tipo = 0)
+    if (INFO_ENABLED and tipo == 0)
     {
       Serial.println("INFO------------------------>");
       Serial.println(msg);
       Serial.println("<------------------------INFO");
     } 
-    else if (DEBUG_ENABLED and tipo = 1)
+    else if (DEBUG_ENABLED and tipo == 1)
     {
       Serial.println("DEBUG----------------------->");
       Serial.println(msg);
       Serial.println("<-----------------------DEBUG");
     } 
-    else if (ALERT_ENABLED and tipo = 2)
+    else if (ALERT_ENABLED and tipo == 2)
     {
       Serial.println("ALERT----------------------->");
       Serial.println(msg);
