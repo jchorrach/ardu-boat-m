@@ -20,7 +20,9 @@
 
 
 #define END_CMD '\r'       // Fin linea de comando
-#define DEBUG_ENABLED true // Activa/desactiva debug
+#define INFO_ENABLED true  // Activa/desactiva debug información (0)
+#define DEBUG_ENABLED true // Activa/desactiva debug (1)
+#define ALERT_ENABLED true // Activa/desactiva debug alertas (2)
 
 //--------------------------------------------------------------
 // Display LCD
@@ -32,9 +34,6 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 byte num_dis = 0;            // Pagina que se enseña en el display
 long page_d_milis;           // Tiempo para que se cambie pagina el LCD
 
-
-//#define TIME_HEADER "T"  // Tag del comando Fecha/hora
-//#define TIME_MSG_LEN 11  // Longitud del comando Fecha/hora
 
 //--------------------------------------------------------------
 // Comunicaciones GSM
@@ -120,24 +119,26 @@ int sindex = 0;    // Indice del proximo caracter en el string
 
 long fin_time_starts; // Tiempo de inicio de evaluacin marchas bomba
 
+//**********************************************************************************************************************
+
 void setup()
 {
   Serial.begin(9600);   // Inicializa monitor Serie
   GSM.begin(19200);     // Inicializa Modem GSM
   lcd.init();           // Inicializa el lcd 
   lcd.backlight();
-  lcd.home ();               // Primera linea y columna del display
+  lcd.home ();                // Primera linea y columna del display
   lcd.print("ARDU-BOAT-M");
-  GSMPower();                // Activa shiled GSM
-  lcd.setCursor ( 0, 1 );    // Segunda linea del display
+  GSMPower();                 // Activa shiled GSM
+  lcd.setCursor ( 0, 1 );     // Segunda linea del display
   lcd.print ("Ok");  
   pinMode(PUMP, OUTPUT);
   pinMode(WATER, INPUT);
   digitalWrite(WATER, HIGH);  // Habilita internal pullup
   digitalWrite(PUMP, HIGH);
-  //setTime(12,0,0,1,1,12);    // Fecha por defecto sin sincronizar
-  
-  flag_a = 0;                // Bomba automatica desactivada
+ 
+  flag_a = 0;                 // Bomba automatica desactivada
+
   fin_time_starts = PUMP_TIME_MAX_START;  // Tiempo limite para evaluar marchas automaticas
   
   page_d_milis = millis() + LCD_TIME_PAG; // Establece tiempo para cambio de pagina en LCD
@@ -164,45 +165,8 @@ void loop()
   delay(500);
 }
 
+//**********************************************************************************************************************
 
-//------------------------------------------------------
-
-void debug(String msg)
-{
-    if (DEBUG_ENABLED)
-    {
-      Serial.println("DEBUG----------------------->");
-      Serial.println(msg);
-      Serial.println("<-----------------------DEBUG");
-    }
-}
-
-/*
-String formatDate(){
-  // Formatea la fecha/hora "hh:mi:ss dd/mm/yy"
-  String fecFmt = "";
-  fecFmt.concat(lpadDigits(hour())+":");
-  fecFmt.concat(lpadDigits(minute())+":");
-  fecFmt.concat(lpadDigits(second())+" ");  
-  fecFmt = fecFmt + lpadDigits(day())+"/";    
-  fecFmt = fecFmt + lpadDigits(month())+"/";
-  fecFmt = fecFmt + year();
-  return fecFmt;
-}
-*/
-
-
-//
-// utilidad para incluir 0 a la izquierda en valores numericos
-//
-/*
-String lpadDigits(int digits){
-  String sdigits = String(digits);
-  if(digits < 10)
-    sdigits.concat("0");
-  return sdigits;
-}
-*/
 
 //
 // Comunicaciones GSM >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -315,7 +279,7 @@ void SMSEstado()
   lcd.print("Estatus");
   page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
   // Preparar SMS de estatus
-  debug("Enviar mensaje!!!");
+  debug("Enviar mensaje!!!",1);
   GSM.println("ATH"); // Colgar llamada entrante
   ProcessGSM();
   delay(500);
@@ -406,14 +370,14 @@ void startPump()
 {
   digitalWrite(PUMP, LOW);
   debug_msg = "Bomba se activada";
-  debug(debug_msg);
+  debug(debug_msg, 1);
 }
 
 void stopPump()
 {
   digitalWrite(PUMP, HIGH);
   debug_msg = "Bomba se apaga";
-  debug(debug_msg);
+  debug(debug_msg, 1);
 }
 
 
@@ -425,7 +389,7 @@ void autoPump(){
     if (millis() > fin_time_starts) // Periodo evaluacion marchas bomba ->
     {
       debug_msg = "Empieza periodo evaluacion marchas bomba";
-      debug(debug_msg);
+      debug(debug_msg, 1);
 
       fin_time_starts = millis() + PUMP_TIME_MAX_START; // Establece nuevo limite para revisar
       num_starts = 0;
@@ -436,9 +400,9 @@ void autoPump(){
       {
         debug_msg = "ALARMA DEMASIADAS ACTIVACIONES AUTOMATICAS DE BOMBA ";
         debug_msg.concat(num_starts);
-        debug(debug_msg);
+        debug(debug_msg, 1);
         comm_msg = debug_msg;
-        sendAlert(comm_msg);
+        debug(comm_msg, 2);
         SMSAlert(1);
         flag_a = 0; // Impide marcha bomba
         digitalWrite(PUMP, HIGH);
@@ -449,7 +413,7 @@ void autoPump(){
     debug_msg = "Bomba Activada con auto paro en ";
     debug_msg.concat(PUMP_TIME_AUTO/1000);
     debug_msg.concat(" segundos");
-    debug(debug_msg);
+    debug(debug_msg, 1);
 
     num_starts ++;
     flag_a = 2;
@@ -461,7 +425,7 @@ void autoPump(){
     debug_msg = "Bomba Apagada automaticamente ";
     debug_msg.concat(PUMP_TIME_AUTO/1000);
     debug_msg.concat(" segundos");
-    debug(debug_msg);
+    debug(debug_msg, 1);
 
     flag_a = 0;
     digitalWrite(PUMP, HIGH);
@@ -469,8 +433,6 @@ void autoPump(){
  
 }
 //  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Gestion bomba achique 
-
-
 
 
 //
@@ -501,7 +463,7 @@ String checkBatt(String batt)
     SMSAlert(2); // Alerta voltaje bajo 
   }
   debug_msg.concat(dtostrf(v,3,1,buff));
-  debug(debug_msg);
+  debug(debug_msg, 1);
   Serial.println(v);
   return dtostrf(v,3,1,buff);
 }
@@ -520,7 +482,7 @@ void checkWater()
   // si el estado es HIGH entonces hay agua
   if (waterState == HIGH) {     
     debug_msg = "Hay agua en la sentina";
-    debug(debug_msg);
+    debug(debug_msg, 1);
     
     if (flag_a == 0) // Mira si bomba no activa y existe agua ->
     {
@@ -593,24 +555,25 @@ void LCDStatus()
 void status()
 {
   
-  comm_msg = "Bat. Motor: ";
-  comm_msg.concat(checkBatt("motor"));
-  comm_msg.concat("\n\r");
-  comm_msg.concat("Bat. Servicio: ");
-  comm_msg.concat(checkBatt("servicio"));
-  comm_msg.concat("\n\r");
+  debug_msg = "Bat. Motor: ";
+  debug_msg.concat(checkBatt("motor"));
+  debug_msg.concat("\n\r");
+  debug_msg.concat("Bat. Servicio: ");
+  debug_msg.concat(checkBatt("servicio"));
+  debug_msg.concat("\n\r");
   if (digitalRead(WATER)==LOW)
-    comm_msg.concat("Sentina: vacia\n\r");
+    debug_msg.concat("Sentina: vacia\n\r");
   else
-    comm_msg.concat("Sentina: llena\n\r");
-  comm_msg.concat("\n\r");  comm_msg.concat("Achiques: ");
-  comm_msg.concat(num_starts);
-  comm_msg.concat("\n\r");
+    debug_msg.concat("Sentina: llena\n\r");
+  debug_msg.concat("\n\r");
+  debug_msg.concat("Achiques: ");
+  debug_msg.concat(num_starts);
+  debug_msg.concat("\n\r");
   if (num_starts > PUMP_MAX_START) // Demasidas marchas de bomba
   {
-    comm_msg.concat("ALARMA ACHIQUE!");
+    debug_msg.concat("ALARMA ACHIQUE!");
   }
-  sendAlert(comm_msg);
+  debug(debug_msg, 0);
 }
 
 
@@ -621,27 +584,26 @@ void processCommand(String cmd) {
     //Procesa comandos recibidos
     debug_msg = "Recibido cmd:";
     debug_msg.concat(cmd);
-    debug(debug_msg);
+    debug(debug_msg, 1);
     // Comando lectura nivel sentina ->
     if (cmd.indexOf(WATER_HEADER) == 0&&cmd.length()==WATER_MSG_LEN)
     {
-      comm_msg = "Valor nivel agua sentina: ";
+      debug_msg = "Valor nivel agua sentina: ";
       if (digitalRead(WATER) == HIGH)
       {
-        comm_msg.concat("LLENO");
-        sendAlert(comm_msg);
+        debug_msg.concat("LLENO");
+        debug(debug_msg, 0);
       }
       else
       {
-        comm_msg.concat("VACIO");
-        sendAlert(comm_msg);
+        debug_msg.concat("VACIO");
+        debug(debug_msg, 0);
       }
     }// <-- Comando lectura nivel sentina
 
     // Comando bomba achique ->
     if (cmd.indexOf(PUMP_HEADER) == 0 && cmd.length()==PUMP_MSG_LEN)
     {
-
       char c = cmd[1];
       
       if (c == 'S') // Acciones ->
@@ -673,6 +635,7 @@ void processCommand(String cmd) {
       {
         num_starts = 0;     // Resetea contador bomba
         flag_SMSAlert1 = 0; // Habilitab envio SMSAlert1
+        flag_SMSAlert2 = 0; // Habilitab envio SMSAlert2
       }
       
     }// <- Comando reset alarmas
@@ -700,16 +663,29 @@ void processCommand(String cmd) {
     
 
 }
-   
+
 
 //
-// Mensajes en puerto serie
+// Gestion de depuración
 //
-
-void sendAlert(String msg)
+void debug(String msg, int tipo)
 {
-  Serial.println("ALERT------------------------------>");
-  //Serial.println(formatDate());
-  Serial.println(msg);
-  Serial.println("<------------------------------ALERT");  
+    if (INFO_ENABLED and tipo = 0)
+    {
+      Serial.println("INFO------------------------>");
+      Serial.println(msg);
+      Serial.println("<------------------------INFO");
+    } 
+    else if (DEBUG_ENABLED and tipo = 1)
+    {
+      Serial.println("DEBUG----------------------->");
+      Serial.println(msg);
+      Serial.println("<-----------------------DEBUG");
+    } 
+    else if (ALERT_ENABLED and tipo = 2)
+    {
+      Serial.println("ALERT----------------------->");
+      Serial.println(msg);
+      Serial.println("<-----------------------ALERT");  
+    }
 }
