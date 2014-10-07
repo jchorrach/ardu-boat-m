@@ -466,7 +466,7 @@ String checkBatt(String batt)
   }
   debug_msg.concat(dtostrf(v,3,1,buff));
   debug(debug_msg, 1);
-  Serial.println(v);
+  
   return dtostrf(v,3,1,buff);
 }
 
