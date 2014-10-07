@@ -11,7 +11,7 @@
 *********************************************************
 */
 
-// #include <Time.h>
+
 #include <stdlib.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
@@ -171,16 +171,15 @@ void debug(String msg)
 {
     if (DEBUG_ENABLED)
     {
-      Serial.print(formatDate());
-      Serial.print(": ");
+      Serial.println("DEBUG----------------------->");
       Serial.println(msg);
+      Serial.println("<-----------------------DEBUG");
     }
 }
 
+/*
 String formatDate(){
   // Formatea la fecha/hora "hh:mi:ss dd/mm/yy"
-  return " ";
-/*  
   String fecFmt = "";
   fecFmt.concat(lpadDigits(hour())+":");
   fecFmt.concat(lpadDigits(minute())+":");
@@ -189,22 +188,24 @@ String formatDate(){
   fecFmt = fecFmt + lpadDigits(month())+"/";
   fecFmt = fecFmt + year();
   return fecFmt;
-  */
 }
+*/
 
 
 //
 // utilidad para incluir 0 a la izquierda en valores numericos
 //
+/*
 String lpadDigits(int digits){
   String sdigits = String(digits);
   if(digits < 10)
     sdigits.concat("0");
   return sdigits;
 }
+*/
 
 //
-// Comunicaciones GSM >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// Comunicaciones GSM >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //
 
 void SMSAlert(int alert)
@@ -219,6 +220,7 @@ void SMSAlert(int alert)
   ProcessGSM();
   delay(300);
 
+  // Alerta(1) Demasiados Achiques
   if (flag_SMSAlert1 == 0 and alert == 1)
   {
     GSM.println("Demasiados achiques!");
@@ -228,14 +230,11 @@ void SMSAlert(int alert)
     comm_msg.concat(num_starts);
     GSM.print(comm_msg);
     flag_SMSAlert1 = 1;
-  } else if (flag_SMSAlert2 == 0 and alert == 2)
+  } 
+  // Alerta(2) Bateria baja
+  else if (flag_SMSAlert2 == 0 and alert == 2)
   {
     GSM.println("Voltaje bateria bajo!");
-//    ProcessGSM();
-//    delay(300);
-//    comm_msg = " Achiques: ";
-//    comm_msg.concat(num_starts);
-//    GSM.print(comm_msg);
     flag_SMSAlert2 = 1;
   }
   ProcessGSM();
@@ -243,7 +242,6 @@ void SMSAlert(int alert)
   GSM.println((char)26);//ASCII para ctrl+z
   ProcessGSM();
   delay(500);  
-
 }
 
 //
@@ -283,7 +281,7 @@ void ProcessGSM()
         netGSM = 0;    
     }    // <-- Revisa mensaje de operador conectado
 
-    Serial.print(">");
+    Serial.print("GSM>");
     Serial.print(buffer);  // Imprime mensaje en el puerto Serie
   }
 
@@ -317,7 +315,7 @@ void SMSEstado()
   lcd.print("Estatus");
   page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
   // Preparar SMS de estatus
-  Serial.println("Enviar mensaje!!!");
+  debug("Enviar mensaje!!!");
   GSM.println("ATH"); // Colgar llamada entrante
   ProcessGSM();
   delay(500);
@@ -397,9 +395,223 @@ void reciveCommand(){
  }
 }
 
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Comunicaciones GSM
+
+
+  
 //
-// Comunicaciones GSM <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+//  Gestion bomba achique >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //
+void startPump()
+{
+  digitalWrite(PUMP, LOW);
+  debug_msg = "Bomba se activada";
+  debug(debug_msg);
+}
+
+void stopPump()
+{
+  digitalWrite(PUMP, HIGH);
+  debug_msg = "Bomba se apaga";
+  debug(debug_msg);
+}
+
+
+void autoPump(){
+  if (flag_a == 1)
+  {
+    // Revisa el numero maximo de puestas en marcha automaticas
+    // si se supera el umbral enviar una alarma
+    if (millis() > fin_time_starts) // Periodo evaluacion marchas bomba ->
+    {
+      debug_msg = "Empieza periodo evaluacion marchas bomba";
+      debug(debug_msg);
+
+      fin_time_starts = millis() + PUMP_TIME_MAX_START; // Establece nuevo limite para revisar
+      num_starts = 0;
+    }
+    else
+    {
+      if (num_starts > PUMP_MAX_START) // Demasiadas marchas de bomba ->
+      {
+        debug_msg = "ALARMA DEMASIADAS ACTIVACIONES AUTOMATICAS DE BOMBA ";
+        debug_msg.concat(num_starts);
+        debug(debug_msg);
+        comm_msg = debug_msg;
+        sendAlert(comm_msg);
+        SMSAlert(1);
+        flag_a = 0; // Impide marcha bomba
+        digitalWrite(PUMP, HIGH);
+        return;
+       } // <- Demasiadas marchas de bomba
+    } // <- Periodo evaluacion marchas bomba
+
+    debug_msg = "Bomba Activada con auto paro en ";
+    debug_msg.concat(PUMP_TIME_AUTO/1000);
+    debug_msg.concat(" segundos");
+    debug(debug_msg);
+
+    num_starts ++;
+    flag_a = 2;
+    digitalWrite(PUMP, LOW);
+    stop_b_milis = millis() + PUMP_TIME_AUTO;
+  }
+  else if (flag_a == 2 && millis() > stop_b_milis)
+  {
+    debug_msg = "Bomba Apagada automaticamente ";
+    debug_msg.concat(PUMP_TIME_AUTO/1000);
+    debug_msg.concat(" segundos");
+    debug(debug_msg);
+
+    flag_a = 0;
+    digitalWrite(PUMP, HIGH);
+  }
+ 
+}
+//  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Gestion bomba achique 
+
+
+
+
+//
+// Gestion Carga bateria >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//
+
+//-> TO DO Leer valor analgico tension bateria
+
+String checkBatt(String batt)
+{
+  int s;
+  float v;
+  char buff[10];
+  debug_msg = "";
+  if (batt == "motor")
+  {
+        s = analogRead(VBATM);
+        debug_msg = "Voltaje Motor:";
+  } else if (batt == "servicio")
+  {
+        s = analogRead(VBATS);
+        debug_msg = "Voltaje Servicio:";
+  }
+  v = (s * 0.0048875)*3.875;
+  
+  if (v < MIN_VOL)
+  {
+    SMSAlert(2); // Alerta voltaje bajo 
+  }
+  debug_msg.concat(dtostrf(v,3,1,buff));
+  debug(debug_msg);
+  Serial.println(v);
+  return dtostrf(v,3,1,buff);
+}
+
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Gestion Carga bateria
+
+//
+// Gestion agua en la sentina >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//
+
+void checkWater()
+{
+   waterState = digitalRead(WATER);
+
+  // Chequea el estado de la boya.
+  // si el estado es HIGH entonces hay agua
+  if (waterState == HIGH) {     
+    debug_msg = "Hay agua en la sentina";
+    debug(debug_msg);
+    
+    if (flag_a == 0) // Mira si bomba no activa y existe agua ->
+    {
+      flag_a = 1; // Activacion con parada automatica de bomba achique
+    }// <- Mira si bomba no activa y existe agua
+  }
+}
+
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Gestion agua en la sentina
+
+
+//
+// Status
+//
+
+void LCDStatus()
+{
+  if (millis() > page_d_milis)
+  {
+    page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
+    lcd.clear();
+    lcd.home();
+    if (num_dis==0)
+    {
+      // Pagina 1
+      lcd.print("B.Motor:");
+      lcd.setCursor(9,0);
+      lcd.print(checkBatt("motor"));
+      lcd.setCursor(0,1);
+      lcd.print("B.Serv.:");
+      lcd.setCursor(9,1);
+      lcd.print(checkBatt("servicio"));
+      num_dis = 1;
+    } else if (num_dis==1)
+    {
+      // Pagina 2    
+      if (digitalRead(WATER)==LOW)
+        lcd.print("Sentina VACIA");
+      else
+        lcd.print("Sentina LLENA");
+      lcd.setCursor(0,1);
+      comm_msg = "Achiques: ";
+      comm_msg.concat(num_starts);
+      lcd.print(comm_msg);
+      num_dis = 2;
+    } else if (num_dis==2)
+    {
+      // Pagina 3    
+      lcd.print("Modem GSM");
+      lcd.setCursor(0,1);
+      if (netGSM==0)
+        lcd.print("No conectado");
+      else
+        lcd.print("Conectado");
+      if (num_starts > PUMP_MAX_START) // Alarma Demasidas marchas de bomba
+        num_dis = 3;
+      else
+        num_dis = 0;
+      
+    } else if (num_dis==3)
+    {
+      // Pagina 4    
+      lcd.print("ALARMA ACHIQUE!");
+      num_dis=0;
+    }
+    
+  }
+}
+
+void status()
+{
+  
+  comm_msg = "Bat. Motor: ";
+  comm_msg.concat(checkBatt("motor"));
+  comm_msg.concat("\n\r");
+  comm_msg.concat("Bat. Servicio: ");
+  comm_msg.concat(checkBatt("servicio"));
+  comm_msg.concat("\n\r");
+  if (digitalRead(WATER)==LOW)
+    comm_msg.concat("Sentina: vacia\n\r");
+  else
+    comm_msg.concat("Sentina: llena\n\r");
+  comm_msg.concat("\n\r");  comm_msg.concat("Achiques: ");
+  comm_msg.concat(num_starts);
+  comm_msg.concat("\n\r");
+  if (num_starts > PUMP_MAX_START) // Demasidas marchas de bomba
+  {
+    comm_msg.concat("ALARMA ACHIQUE!");
+  }
+  sendAlert(comm_msg);
+}
 
 
 //
@@ -489,214 +701,6 @@ void processCommand(String cmd) {
 
 }
    
-  
-//
-//  Gestion bomba achique
-//
-void startPump()
-{
-  digitalWrite(PUMP, LOW);
-  debug_msg = "Bomba se activada";
-  debug(debug_msg);
-}
-
-void stopPump()
-{
-  digitalWrite(PUMP, HIGH);
-  debug_msg = "Bomba se apaga";
-  debug(debug_msg);
-}
-
-
-void autoPump(){
-  if (flag_a == 1)
-  {
-    // Revisa el numero maximo de puestas en marcha automaticas
-    // si se supera el umbral enviar una alarma
-    if (millis() > fin_time_starts) // Periodo evaluacion marchas bomba ->
-    {
-      debug_msg = "Empieza periodo evaluacion marchas bomba";
-      debug(debug_msg);
-
-      fin_time_starts = millis() + PUMP_TIME_MAX_START; // Establece nuevo limite para revisar
-      num_starts = 0;
-    }
-    else
-    {
-      if (num_starts > PUMP_MAX_START) // Demasiadas marchas de bomba ->
-      {
-        debug_msg = "ALARMA DEMASIADAS ACTIVACIONES AUTOMATICAS DE BOMBA ";
-        debug_msg.concat(num_starts);
-        debug(debug_msg);
-        comm_msg = debug_msg;
-        sendAlert(comm_msg);
-        SMSAlert(1);
-        flag_a = 0; // Impide marcha bomba
-        digitalWrite(PUMP, HIGH);
-        return;
-       } // <- Demasiadas marchas de bomba
-    } // <- Periodo evaluacion marchas bomba
-
-    debug_msg = "Bomba Activada con auto paro en ";
-    debug_msg.concat(PUMP_TIME_AUTO/1000);
-    debug_msg.concat(" segundos");
-    debug(debug_msg);
-
-    num_starts ++;
-    flag_a = 2;
-    digitalWrite(PUMP, LOW);
-    stop_b_milis = millis() + PUMP_TIME_AUTO;
-  }
-  else if (flag_a == 2 && millis() > stop_b_milis)
-  {
-    debug_msg = "Bomba Apagada automaticamente ";
-    debug_msg.concat(PUMP_TIME_AUTO/1000);
-    debug_msg.concat(" segundos");
-    debug(debug_msg);
-
-    flag_a = 0;
-    digitalWrite(PUMP, HIGH);
-  }
- 
-}
-
-
-//
-// Gestion Carga bateria
-//
-
-//-> TO DO Leer valor analgico tension bateria
-
-String checkBatt(String batt)
-{
-  int s;
-  float v;
-  char buff[10];
-  if (batt == "motor")
-  {
-        s = analogRead(VBATM);
-        Serial.print("Voltaje Motor:");
-  } else if (batt == "servicio")
-  {
-        s = analogRead(VBATS);
-        Serial.print("Voltaje Servicio:");
-  }
-  v = (s * 0.0048875)*3.875;
-  
-  if (v < MIN_VOL)
-  {
-    SMSAlert(2); // Alerta voltaje bajo 
-  }
-  
-  Serial.println(v);
-  return dtostrf(v,3,1,buff);
-}
-
-//
-// Status
-//
-
-void LCDStatus()
-{
-  if (millis() > page_d_milis)
-  {
-    page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
-    lcd.clear();
-    lcd.home();
-    if (num_dis==0)
-    {
-      // Pagina 1
-      lcd.print("B.Motor:");
-      lcd.setCursor(9,0);
-      lcd.print(checkBatt("motor"));
-      lcd.setCursor(0,1);
-      lcd.print("B.Serv.:");
-      lcd.setCursor(9,1);
-      lcd.print(checkBatt("servicio"));
-      num_dis = 1;
-    } else if (num_dis==1)
-    {
-      // Pagina 2    
-      if (digitalRead(WATER)==LOW)
-        lcd.print("Sentina VACIA");
-      else
-        lcd.print("Sentina LLENA");
-      lcd.setCursor(0,1);
-      comm_msg = "Achiques: ";
-      comm_msg.concat(num_starts);
-      lcd.print(comm_msg);
-      num_dis = 2;
-    } else if (num_dis==2)
-    {
-      // Pagina 3    
-      lcd.print("Modem GSM");
-      lcd.setCursor(0,1);
-      if (netGSM==0)
-        lcd.print("No conectado");
-      else
-        lcd.print("Conectado");
-      if (num_starts > PUMP_MAX_START) // Alarma Demasidas marchas de bomba
-        num_dis = 3;
-      else
-        num_dis = 0;
-      
-    } else if (num_dis==3)
-    {
-      // Pagina 4    
-      lcd.print("ALARMA ACHIQUE!");
-      num_dis=0;
-    }
-    
-  }
-}
-
-void status()
-{
-  
-  comm_msg = "Bat. Motor: ";
-  comm_msg.concat(checkBatt("motor"));
-  comm_msg.concat("\n\r");
-  comm_msg.concat("Bat. Servicio: ");
-  comm_msg.concat(checkBatt("servicio"));
-  comm_msg.concat("\n\r");
-  if (digitalRead(WATER)==LOW)
-    comm_msg.concat("Sentina: vacia\n\r");
-  else
-    comm_msg.concat("Sentina: llena\n\r");
-  comm_msg.concat("\n\r");  comm_msg.concat("Achiques: ");
-  comm_msg.concat(num_starts);
-  comm_msg.concat("\n\r");
-  if (num_starts > PUMP_MAX_START) // Demasidas marchas de bomba
-  {
-    comm_msg.concat("ALARMA ACHIQUE!");
-  }
-  sendAlert(comm_msg);
-}
-
-//
-// Gestion agua en la sentina
-//
-
-void checkWater()
-{
-   waterState = digitalRead(WATER);
-
-  // Chequea el estado de la boya.
-  // si el estado es HIGH entonces hay agua
-  if (waterState == HIGH) {     
-    debug_msg = "Hay agua en la sentina";
-    debug(debug_msg);
-    
-    if (flag_a == 0) // Mira si bomba no activa y existe agua ->
-    {
-      flag_a = 1; // Activacion con parada automatica de bomba achique
-    }// <- Mira si bomba no activa y existe agua
-  } /*
-  else {
-    debug_msg = "Sentina vacia";
-    debug(debug_msg);
-  }*/
-}
 
 //
 // Mensajes en puerto serie
@@ -704,8 +708,8 @@ void checkWater()
 
 void sendAlert(String msg)
 {
-  Serial.println("-Comm------------------------------");
-  Serial.println(formatDate());
+  Serial.println("ALERT------------------------------>");
+  //Serial.println(formatDate());
   Serial.println(msg);
-  Serial.println("-----------------------------------");  
+  Serial.println("<------------------------------ALERT");  
 }
