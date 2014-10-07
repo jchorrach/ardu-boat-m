@@ -17,7 +17,8 @@
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 
-
+#define NAME "ARDU-BOAT-M"
+#define VERSION "Beta"
 
 #define END_CMD '\r'       // Fin linea de comando
 #define INFO_ENABLED true  // Activa/desactiva debug información (0)
@@ -128,10 +129,10 @@ void setup()
   lcd.init();           // Inicializa el lcd 
   lcd.backlight();
   lcd.home ();                // Primera linea y columna del display
-  lcd.print("ARDU-BOAT-M");
+  lcd.print(NAME);
   GSMPower();                 // Activa shiled GSM
   lcd.setCursor ( 0, 1 );     // Segunda linea del display
-  lcd.print ("Ok");  
+  lcd.print (VERSION);  
   pinMode(PUMP, OUTPUT);
   pinMode(WATER, INPUT);
   digitalWrite(WATER, HIGH);  // Habilita internal pullup
