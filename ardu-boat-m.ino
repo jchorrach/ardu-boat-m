@@ -14,8 +14,8 @@ Mapa de pines:
 ------------------------------------
 00: Rx Serial
 01: Tx Serial
-02: 
-03:
+02:< 
+03:<Alarma intrusos [ROBO] in
 04:
 05:
 06:
@@ -81,6 +81,7 @@ byte SEND_SMS_se = 0; // Si 1 entonces ya se ha enviado SMS de sentina
 byte SEND_SMS_bm = 0; // Si 1 entonces ya se ha enviado SMS de voltaje bateria motor bajo
 byte SEND_SMS_bs = 0; // Si 1 entonces ya se ha enviado SMS de voltaje bateria servicio bajo
 byte SEND_SMS_ga = 0; // Si 1 entonces ya se ha enviado SMS de detectado gas
+byte SEND_SMS_ro = 0; // Si 1 entonces ya se ha enviado SMS de forzada entrada
 
 //--------------------------------------------------------------
 // Setup
@@ -150,6 +151,14 @@ byte alarma_bs = 0;  // Si 0 bateria servicio cargada, si 1 bateria servicio baj
 int gasState = 0;    // Estado del sensor gas
 byte alarma_ga = 0;  // Si 0 no detecta gas, si 1 se detecta gas
 
+/---------------------------------------------------------------
+// Trigger alarma de robo
+//
+//
+#define ROBO 3       // Pin(interrupciones) alarma de robo
+byte alarma_ro = 0;  // Si 0 no se ha forzado entrada, si 1 se ha forzado entrada
+
+
 //--------------------------------------------------------------
 
 String debug_msg;     // Mensaje de debug
@@ -179,6 +188,7 @@ void setup()
   pinMode(WATER, INPUT);
   digitalWrite(WATER, HIGH);  // Habilita internal pullup
   digitalWrite(PUMP, HIGH);
+  attachInterrupt(1, robo, LOW);
  
   flag_a = 0;                 // Bomba automatica desactivada
 
@@ -612,6 +622,20 @@ void checkGas()
 }
 
 // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Gestion detector gas butano
+
+//
+// Gestion robo >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//
+// Gestion de intruso
+//
+void robo()
+{
+   alarma_ro = 1;
+   debug_msg = "Detecta intruso";
+   debug(debug_msg, 1);
+}
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Gestion robo
 
 //
 // Status
