@@ -9,6 +9,30 @@
 **  -Comunicacion GSM
 **
 *********************************************************
+
+Mapa de pines:
+------------------------------------
+00: Rx Serial
+01: Tx Serial
+02: 
+03:
+04:
+05:
+06:
+07: Rx tarjeta GSM
+08: Tx tarjeta GSM
+09: Reset tarjeta GSM out
+10:
+11: Sensor agua [WATER] in
+12: relay bomba achique [PUMP] out
+13: Sensor gas butano [GAS] in
+A0: Bateria Servicio [VBATS] in
+A1: Bateria Motor [VBATM] in
+A2:
+A3:
+A4: SDA para LCD
+A5: SCL para LCD
+
 */
 
 
@@ -47,14 +71,16 @@ long page_d_milis;           // Tiempo para que se cambie pagina el LCD
 #define GSM_MSG_LEN 2   // Longitud del comando Bomba achique
 #define MODEM_HEADER "$"  // Reenvio de comando al modem GSM
 #define MODEM_TIME_CHK 14000 // ms de funcionamiento en modo automatico
-#define TLF_CALL "********" // Telefono permitido requerimiento SMS
+#define TLF_CALL "********"   // Telefono permitido requerimiento SMS
 #define TLF_SMS "+**********" // Telefono al que se envian los SMS
 SoftwareSerial GSM(7, 8); // Usa sensores digitales 7RX y 8TX
 String buffer;          // buffer array para recibir datos
 long chk_m_milis = 0;   // Tiempo en que deberia pararse automaticamente la bomba
 byte netGSM = 0;        // Indica si hay conexion de red GSM (0 No, 1 Si)
-byte flag_SMSAlert1 = 0; // Si 1 entonces ya se ha enviado SMSAlert1 de sentina
-byte flag_SMSAlert2 = 0; // Si 1 entonces ya se ha enviado SMSAlert1 de voltaje
+byte SEND_SMS_se = 0; // Si 1 entonces ya se ha enviado SMS de sentina
+byte SEND_SMS_bm = 0; // Si 1 entonces ya se ha enviado SMS de voltaje bateria motor bajo
+byte SEND_SMS_bs = 0; // Si 1 entonces ya se ha enviado SMS de voltaje bateria servicio bajo
+byte SEND_SMS_ga = 0; // Si 1 entonces ya se ha enviado SMS de detectado gas
 
 //--------------------------------------------------------------
 // Setup
@@ -68,6 +94,7 @@ byte flag_SMSAlert2 = 0; // Si 1 entonces ya se ha enviado SMSAlert1 de voltaje
 
 //--------------------------------------------------------------
 // Status del sistema
+//
 // S
 //
 #define STATUS_HEADER "S" // Tag del comando status
@@ -75,6 +102,7 @@ byte flag_SMSAlert2 = 0; // Si 1 entonces ya se ha enviado SMSAlert1 de voltaje
 
 //--------------------------------------------------------------
 // Nivel del agua en sentina
+//
 // W
 //
 #define WATER 11         // Nivel del agua (Digital In)
@@ -83,20 +111,22 @@ byte flag_SMSAlert2 = 0; // Si 1 entonces ya se ha enviado SMSAlert1 de voltaje
 #define WATER_INTERVAL_VAL 5000  // Intervalo ms para comparar niveles
 
 int waterState = 0; // Estado del sensor boya
+byte alarma_se = 0; // Si 0 no hay peligro hundimiento, si 1 peligro hundimiento
 
 //--------------------------------------------------------------
-// Comado bomba de achique
+// Bomba de achique
+//
 // A<valor>
 // AS -> En marcha bomba de achique 
 // AA -> En marcha bomba de achique con stop automatico
 // AN -> Para bomba de achique
 //
-#define PUMP 12          // Control rele bomba (Digital Out)
-#define PUMP_HEADER "A"  // Tag del comado Bomba achique
-#define PUMP_MSG_LEN 2   // Longitud del comando Bomba achique
+#define PUMP 12              // Control rele bomba (Digital Out)
+#define PUMP_HEADER "A"      // Tag del comado Bomba achique
+#define PUMP_MSG_LEN 2       // Longitud del comando Bomba achique
 #define PUMP_TIME_AUTO 12000 // ms de funcionamiento en modo automatico
 #define PUMP_MAX_START 4     // Maximo numero de activaciones por periodo
-#define PUMP_TIME_MAX_START 400000 // Periodo en el que se evalua el numero de marchas de la bomba
+#define PUMP_TIME_MAX_START 400000 // Periodo en el que se evalua el numero de marchas de la bomba ms
 
 byte flag_a = 0;     // Si 0 sin activacion 1 inicio bomba si 2 esperando duracion para apagar
 long stop_b_milis;   // Tiempo en que deberia pararse automaticamente la bomba
@@ -106,33 +136,45 @@ byte num_starts = 0; // Conteo de marchas automaticas bomba
 // Lectura de tension de las baterias
 //
 //
-#define VBATS 0 // Pin analogico para leer tension bat. servicio
-#define VBATM 1 // Pin analogico para leer tension bat. motor
+#define VBATS 0      // Pin analogico para leer tension bat. servicio
+#define VBATM 1      // Pin analogico para leer tension bat. motor
 #define MIN_VOL 12.1 // Valor de alarma para voltaje bajo
+byte alarma_bm = 0;  // Si 0 bateria motor cargada, si 1 bateria motor baja
+byte alarma_bs = 0;  // Si 0 bateria servicio cargada, si 1 bateria servicio baja
+
+/---------------------------------------------------------------
+// Lectura de sensor gas butano
+//
+//
+#define GAS 13       // Pin para leer sensor de gas
+int gasState = 0;    // Estado del sensor gas
+byte alarma_ga = 0;  // Si 0 no detecta gas, si 1 se detecta gas
 
 //--------------------------------------------------------------
 
-String debug_msg;    // Mensaje de debug
-String comm_msg;     // Mensaje de comunicaciones
+String debug_msg;     // Mensaje de debug
+String comm_msg;      // Mensaje de comunicaciones
 
-char c_string[20]; // String que contendra el comando recibido
-int sindex = 0;    // Indice del proximo caracter en el string
+char c_string[20];    // String que contendra el comando recibido
+int sindex = 0;       // Indice del proximo caracter en el string
 
-long fin_time_starts; // Tiempo de inicio de evaluacin marchas bomba
+long fin_time_starts; // Tiempo de inicio de evaluacion marchas bomba
 
 //**********************************************************************************************************************
 
 void setup()
 {
-  Serial.begin(9600);   // Inicializa monitor Serie
-  GSM.begin(19200);     // Inicializa Modem GSM
-  lcd.init();           // Inicializa el lcd 
-  lcd.backlight();
-  lcd.home ();                // Primera linea y columna del display
+  Serial.begin(9600);     // Inicializa monitor Serie
+  GSM.begin(19200);       // Inicializa Modem GSM
+  lcd.init();             // Inicializa el lcd 
+  lcd.backlight();        // Activa iluminación LCD
+  lcd.home ();            // Primera linea y columna del display
   lcd.print(NAME);
-  GSMPower();                 // Activa shiled GSM
-  lcd.setCursor ( 0, 1 );     // Segunda linea del display
+  GSMPower();             // Activa shiled GSM
+  lcd.setCursor ( 0, 1 ); // Segunda linea del display
   lcd.print (VERSION);  
+
+  // Inicializar Pines
   pinMode(PUMP, OUTPUT);
   pinMode(WATER, INPUT);
   digitalWrite(WATER, HIGH);  // Habilita internal pullup
@@ -152,14 +194,19 @@ void loop()
   {
     reciveCommand();
   }
+
+  // Chequeo detector gas
+  checkGas();
+
   // Chequeo agua en la sentina
   checkWater();
+
   // Chequeo estado funcionamiento bomba automatico
   autoPump();
-  // Lee comandos modem GSM
-  ProcessGSM();
-  // Chequeo modem GSM
-  ChkGSM();
+
+  // Funcionalidad GSM
+  _GSM();
+
   // Display
   LCDStatus();
   
@@ -172,42 +219,73 @@ void loop()
 //
 // Comunicaciones GSM >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //
-
-void SMSAlert(int alert)
+// Funcionalidades GSM
+//
+void _GSM()
 {
-  GSM.println("AT+CMGF=1");
-  ProcessGSM();
-  delay(300);
-  comm_msg = "AT+CMGS=\"";
-  comm_msg.concat(TLF_SMS);
-  comm_msg.concat("\"");
-  GSM.println(comm_msg);
-  ProcessGSM();
-  delay(300);
-
-  // Alerta(1) Demasiados Achiques
-  if (flag_SMSAlert1 == 0 and alert == 1)
-  {
-    GSM.println("Demasiados achiques!");
-    ProcessGSM();
-    delay(300);
-    comm_msg = " Achiques: ";
-    comm_msg.concat(num_starts);
-    GSM.print(comm_msg);
-    flag_SMSAlert1 = 1;
-  } 
-  // Alerta(2) Bateria baja
-  else if (flag_SMSAlert2 == 0 and alert == 2)
-  {
-    GSM.println("Voltaje bateria bajo!");
-    flag_SMSAlert2 = 1;
-  }
-  ProcessGSM();
-  delay(300);
-  GSM.println((char)26);//ASCII para ctrl+z
-  ProcessGSM();
-  delay(500);  
+  ProcessGSM(); // Lee comandos modem GSM
+  ChkGSM();     // Chequeo modem GSM
+  SMSAlert();   // Gestion alertas SMS
 }
+
+//
+//  Gestion de envio de SMS de alertas
+//
+void SMSAlert()
+{
+
+  if (netGSM == 0)
+  {
+    return; // El GSM no esta conectado
+  }
+
+  if ((SEND_SMS_se == 0 and alarma_se == 1) or 
+      (SEND_SMS_bm == 0 and alarma_bm == 1) or
+      (SEND_SMS_bs == 0 and alarma_bs == 1) or
+      (SEND_SMS_ga == 0 and alarma_ga == 1))
+  {
+     GSM.println("AT+CMGF=1");
+     ProcessGSM();
+     delay(300);
+     comm_msg = "AT+CMGS=\"";
+     comm_msg.concat(TLF_SMS);
+     comm_msg.concat("\"");
+     GSM.println(comm_msg);
+     ProcessGSM();
+     delay(300);
+
+     // Alerta Demasiados Achiques
+     if (alarma_se == 1)
+     {
+        GSM.println("Demasiados achiques!");
+        ProcessGSM();
+        delay(300);
+        comm_msg = " Achiques: ";
+        comm_msg.concat(num_starts);
+        GSM.print(comm_msg);
+        SEND_SMS_se = 1;
+     } 
+     // Alerta Bateria Motor baja
+     else if (alarma_bm == 1)
+     {
+        GSM.println("Voltaje bateria motor bajo!");
+        SEND_SMS_bm = 1;
+     }
+     // Alerta Bateria Servicio baja
+     else if (alarma_bs == 1)
+     {
+        GSM.println("Voltaje bateria servicio bajo!");
+        SEND_SMS_bs = 1;
+     }
+
+     ProcessGSM();
+     delay(300);
+     GSM.println((char)26);//ASCII para ctrl+z
+     ProcessGSM();
+     delay(500);  
+  }
+}
+
 
 //
 // Recepcion mensajes modem GSM
@@ -314,7 +392,7 @@ void SMSEstado()
   GSM.print(comm_msg);
   ProcessGSM();
   delay(300);
-  if (num_starts > PUMP_MAX_START) // Alarma Demasidas marchas de bomba
+  if (alarma_se == 1) // Alarma Demasidas marchas de bomba
     GSM.println("ALARMA ACHIQUE!");
   delay(300);  
   GSM.println((char)26);//ASCII para ctrl+z
@@ -363,9 +441,10 @@ void reciveCommand(){
 // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Comunicaciones GSM
 
 
-  
 //
 //  Gestion bomba achique >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//
+// Arranca bomba achique
 //
 void startPump()
 {
@@ -374,6 +453,9 @@ void startPump()
   debug(debug_msg, 1);
 }
 
+//
+// Para bomba achique
+//
 void stopPump()
 {
   digitalWrite(PUMP, HIGH);
@@ -381,7 +463,9 @@ void stopPump()
   debug(debug_msg, 1);
 }
 
-
+//
+// Gestiona parada automatica bomba achique
+//
 void autoPump(){
   if (flag_a == 1)
   {
@@ -397,14 +481,15 @@ void autoPump(){
     }
     else
     {
+      alarma_se = 0;
       if (num_starts > PUMP_MAX_START) // Demasiadas marchas de bomba ->
       {
+        alarma_se = 1; // Hay peligor de hundimiento
         debug_msg = "ALARMA DEMASIADAS ACTIVACIONES AUTOMATICAS DE BOMBA ";
         debug_msg.concat(num_starts);
         debug(debug_msg, 1);
         comm_msg = debug_msg;
         debug(comm_msg, 2);
-        SMSAlert(1);
         flag_a = 0; // Impide marcha bomba
         digitalWrite(PUMP, HIGH);
         return;
@@ -439,9 +524,8 @@ void autoPump(){
 //
 // Gestion Carga bateria >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //
-
-//-> TO DO Leer valor analgico tension bateria
-
+// Chequea voltaje baterias
+//
 String checkBatt(String batt)
 {
   int s;
@@ -451,20 +535,32 @@ String checkBatt(String batt)
   if (batt == "motor")
   {
         s = analogRead(VBATM);
+        v = (s * 0.0048875)*3.875;
         debug_msg = "Voltaje Motor:";
-  } else if (batt == "servicio")
+
+        alarma_bm = 0; 
+        if (v < MIN_VOL)
+        {
+           alarma_bm = 1; // Bateria motor baja
+        }
+
+  } 
+   else
   {
         s = analogRead(VBATS);
+        v = (s * 0.0048875)*3.875;
         debug_msg = "Voltaje Servicio:";
+
+        alarma_bs = 1;
+        if (v < MIN_VOL && batt <> "motor")
+        {
+           debug("Servicio voltaje bajo !!", 2);
+           alarma_bs = 1; //Bateria servicio baja
+        }
   }
-  v = (s * 0.0048875)*3.875;
-  
-  if (v < MIN_VOL)
-  {
-    debug(batt + " voltaje bajo !!", 2);
-    SMSAlert(2); // Alerta voltaje bajo 
-  }
-  debug_msg.concat(dtostrf(v,3,1,buff));
+
+
+  debug_msg.concat(dtostrf(v,3,1,buff));  
   debug(debug_msg, 1);
   
   return dtostrf(v,3,1,buff);
@@ -475,7 +571,8 @@ String checkBatt(String batt)
 //
 // Gestion agua en la sentina >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //
-
+// Chequea sensor de agua sentina
+//
 void checkWater()
 {
    waterState = digitalRead(WATER);
@@ -495,6 +592,26 @@ void checkWater()
 
 // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Gestion agua en la sentina
 
+//
+// Gestion detector gas butano >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//
+// Chequea sensor de gas butano
+//
+void checkGas()
+{
+   alarma_ga = 0;
+   gasState = digitalRead(GAS);
+
+  // Chequea el sensor de gas.
+  // si el estado es HIGH entonces hay gas
+  if (gasState == HIGH) {     
+    alarma_ga = 1;
+    debug_msg = "Detecta gas butano";
+    debug(debug_msg, 1);
+  }
+}
+
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Gestion detector gas butano
 
 //
 // Status
@@ -571,10 +688,19 @@ void status()
   debug_msg.concat("Achiques: ");
   debug_msg.concat(num_starts);
   debug_msg.concat("\n\r");
-  if (num_starts > PUMP_MAX_START) // Demasidas marchas de bomba
+  if (alarma_se == 1) // Demasidas marchas de bomba
   {
-    debug_msg.concat("ALARMA ACHIQUE!");
+    debug_msg.concat("ALARMA ACHIQUE!\n\r");
   }
+  if (alarma_bm == 1) // voltaje bat. motor bajo
+  {
+    debug_msg.concat("VOLTAJE BATERIA MOTOR BAJO!\n\r");
+  }
+  if (alarma_bs == 1) // voltaje bat. servicio bajo
+  {
+    debug_msg.concat("VOLTAJE BATERIA SERVICIO BAJO!\n\r");
+  }
+
   debug(debug_msg, 0);
 }
 
@@ -635,9 +761,11 @@ void processCommand(String cmd) {
       
       if (c == 'A') // Acciones ->
       {
-        num_starts = 0;     // Resetea contador bomba
-        flag_SMSAlert1 = 0; // Habilitab envio SMSAlert1
-        flag_SMSAlert2 = 0; // Habilitab envio SMSAlert2
+        num_starts = 0;  // Resetea contador bomba
+        SEND_SMS_se = 0; // Habilita envio SMS alerta
+        SEND_SMS_bm = 0; // Habilita envio SMS alerta
+	SEND_SMS_bs = 0; // Habilita envio SMS alerta
+        SEND_SMS_ga = 0; // Habilita envio SMS alerta
       }
       
     }// <- Comando reset alarmas
@@ -663,7 +791,6 @@ void processCommand(String cmd) {
       
     }// <- Comando para shield GSM
     
-
 }
 
 
