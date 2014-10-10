@@ -751,15 +751,29 @@ void LCDStatus()
         lcd.print(F("No conectado"));
       else
         lcd.print(F("Conectado"));
-      if (num_starts > PUMP_MAX_START) // Alarma Demasidas marchas de bomba
+      if (alarmas!=0) // Alarma Demasidas marchas de bomba
         num_dis = 3;
       else
         num_dis = 0;
       
     } else if (num_dis==3)
     {
-      // Pagina 4    
-      lcd.print(F("ALARMA ACHIQUE!"));
+      // Pagina 4 
+      if ((alarmas & 1) == 1)
+      {   
+        lcd.print(F("ALARMA ACHIQUE!"));
+        delay(500);
+      }
+      if ((alarmas & 8) == 8)
+      {   
+        lcd.print(F("ALARMA GAS!"));
+        delay(500);
+      }
+      if ((alarmas & 16) == 16)
+      {   
+        lcd.print(F("ALARMA INTRUSO!"));
+        delay(500);
+      }
       num_dis=0;
     }
     
