@@ -1,10 +1,12 @@
-ardu-boat-m
-===========
+<h1>ardu-boat-m</h1>
 
-Monitorización estado del barco con arduino.
 
-*Voltage bateria motor
-*Voltage bateria servicio
-*Chequeo agua en sentina
+<p>Monitorización estado del barco con arduino.</p>
 
-Automatización de achique de agua en sentina estableciendo alarmas
+<ul>
+<li>Voltage bateria motor</li>
+<li>Voltage bateria servicio</li>
+<li>Chequeo agua en sentina</li>
+</ul>
+
+<p>Automatización de achique de agua en sentina estableciendo alarmas</p>
