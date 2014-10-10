@@ -248,7 +248,9 @@ void loop()
 }
 
 //**********************************************************************************************************************
-
+//
+// Gestion SETUP >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<>>>>>>>>>>>>>>>>>>>>>>>>>
+//
 void config()
 {
   byte estadoBoton_mas   = 0;
@@ -292,6 +294,7 @@ void config()
   }
 }
 
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<>>>>>>>>>>>>>>>>>>>>>>>>> Gestion SETUP
 //
 // Comunicaciones GSM >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //
@@ -514,25 +517,6 @@ void GSMPower()
   chk_m_milis = millis() + MODEM_TIME_CHK; // Proximo chequeo red GSM
 }
 
-
-//
-//  Recepción del comando
-//
-void reciveCommand(){
- // Lee caracteres hasta fin de comando
- while(Serial.available() > 0) {
-
-    c_string[sindex] = Serial.read();
-
-    if(c_string[sindex++] == END_CMD)
-    {
-      c_string[sindex-1] = '\0';
-      processCommand(c_string);
-      c_string[0]='\0';
-      sindex = 0;
-    }
- }
-}
 // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Comunicaciones GSM
 //
 //  Gestion bomba achique >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -793,6 +777,24 @@ void status()
   debug(debug_msg, 0);
 }
 
+//
+//  Recepción del comando
+//
+void reciveCommand(){
+ // Lee caracteres hasta fin de comando
+ while(Serial.available() > 0) {
+
+    c_string[sindex] = Serial.read();
+
+    if(c_string[sindex++] == END_CMD)
+    {
+      c_string[sindex-1] = '\0';
+      processCommand(c_string);
+      c_string[0]='\0';
+      sindex = 0;
+    }
+ }
+}
 
 //
 //  Procesar comando recibido
