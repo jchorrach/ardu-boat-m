@@ -214,9 +214,10 @@ void setup()
   pinMode(SGAS, INPUT); 
   pinMode(PUMP, OUTPUT);
   pinMode(WATER, INPUT);
+  pinMode(ROBO, INPUT);  
   digitalWrite(WATER, HIGH);  // Habilita internal pullup
   digitalWrite(PUMP, HIGH);
-  attachInterrupt(1, robo, FALLING);
+  
  
   flag_a = 0;                 // Bomba automatica desactivada
 
@@ -236,6 +237,10 @@ void loop()
   checkWater();
   // Chequeo estado funcionamiento bomba automatico
   autoPump();
+  // Chequeo gas
+  checkGas();
+  //Chequeo intruso
+  checkRobo();
   // Gerstion modem GSM
   _GSM();
 
@@ -316,7 +321,7 @@ void SMSAlertas()
     return; // El GSM no esta conectado
  
 
-  if (SEND_SMS_se != 0 and (alarmas|0) > 0)
+  if (SEND_SMS_ALARM != 0 && (alarmas|0) > 0)
   {
      GSM.println(F("AT+CMGF=1"));
      delay(100);
@@ -677,8 +682,8 @@ void checkGas()
    volatile bool sensorgas = digitalRead(SGAS);
 
   // Chequea el sensor de gas.
-  // si el estado es HIGH entonces hay gas
-  if (sensorgas == HIGH) {     
+  // si el estado es LOW entonces hay gas
+  if (sensorgas == LOW) {     
     alarmas = alarmas | 8; // Activa alarma de gas. Pone a 1 el bit(4) 
     debug_msg = "Detecta gas butano";
     debug(debug_msg, 1);
@@ -691,11 +696,15 @@ void checkGas()
 //
 // Gestion de intruso
 //
-void robo()
+void checkRobo()
 {
-   alarmas = alarmas | 16; // Alarma intruso. Pone a 1 el bit(5) 
-   debug_msg = "Detecta intruso";
-   debug(debug_msg, 1);
+   alarmas = alarmas & 112; // Alarma intruso. Pone a 0 el bit(5)
+   if (digitalRead(ROBO) == LOW)
+   {
+      alarmas = alarmas | 16; // Activa alarma intruso. Pone a 1 el bit(5)  
+      debug_msg = "Detecta intruso";
+      debug(debug_msg, 1);
+   }
 }
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Gestion robo
@@ -854,7 +863,7 @@ void processCommand(String cmd) {
       {
         num_starts = 0;     // Resetea contador bomba
 	SEND_SMS_ALARM = 0; // SMS alarmas enviadas activar. Mapbit a 0
-	alarmas = ; // Desactiva alarmas. Mapbit a 0
+	alarmas = 0;        // Desactiva todas las alarmas. Mapbit a 0
       }
       
     }// <- Comando reset alarmas
