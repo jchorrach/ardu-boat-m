@@ -761,18 +761,21 @@ void LCDStatus()
       // Pagina 4 
       if ((alarmas & 1) == 1)
       {   
+        lcd.setCursor(0,1);
         lcd.print(F("ALARMA ACHIQUE!"));
-        delay(500);
+        delay(1000);
       }
       if ((alarmas & 8) == 8)
-      {   
+      {  
+        lcd.setCursor(0,1);
         lcd.print(F("ALARMA GAS!"));
-        delay(500);
+        delay(1000);
       }
       if ((alarmas & 16) == 16)
-      {   
+      { 
+        lcd.setCursor(0,1);
         lcd.print(F("ALARMA INTRUSO!"));
-        delay(500);
+        delay(1000);
       }
       num_dis=0;
     }
