@@ -44,9 +44,9 @@ A5: SCL para LCD
 #define VERSION "Ver. Beta"
 
 #define END_CMD '\r'       // Fin linea de comando
-#define INFO_ENABLED true  // Activa/desactiva debug información (0)
-#define DEBUG_ENABLED true // Activa/desactiva debug (1)
-#define ALERT_ENABLED true // Activa/desactiva debug alertas (2)
+#define INFO_ENABLED false  // Activa/desactiva debug información (0)
+#define DEBUG_ENABLED false // Activa/desactiva debug (1)
+#define ALERT_ENABLED false // Activa/desactiva debug alertas (2)
 
 //--------------------------------------------------------------
 // Display LCD
@@ -71,7 +71,7 @@ long page_d_milis;           // Tiempo para que se cambie pagina el LCD
 #define MODEM_HEADER "$"  // Reenvio de comando al modem GSM
 #define MODEM_TIME_CHK 14000 // ms de funcionamiento en modo automatico
 #define TLF_CALL "********" // Telefono permitido requerimiento SMS
-#define TLF_SMS "+**********" // Telefono al que se envian los SMS
+#define TLF_SMS "+***********" // Telefono al que se envian los SMS
 #define RESET_GSM 9       // Pin Reset de la placa GSM
 SoftwareSerial GSM(7, 8); // Usa sensores digitales 7RX y 8TX
 String gsmbuf;          // buffer array para recibir datos
@@ -436,6 +436,18 @@ void ProcessGSM()
         debug("Sin red GSM",2);
       }    
     }    // <-- Revisa mensaje de operador conectado
+    
+    // Revisa SMS recibido ->
+    i = gsmbuf.indexOf("+CMT: ");
+    if (i>-1)
+    {
+      i = gsmbuf.indexOf("\n",i+1);
+      if (i>-1)
+      {
+         st = gsmbuf.substring(i+1,gsmbuf.length()-2);
+      }     
+      processCommand(st);
+    }
 
     Serial.print(F("\r\nGSM>"));
     Serial.print(gsmbuf);  // Imprime mensaje en el puerto Serie
@@ -624,16 +636,27 @@ void autoPump(){
 String checkBatt(String batt)
 {
   volatile int s;
+  volatile int n;
   volatile float v;
+  volatile float vi;
   char buff[10];
   
   if (batt == "motor")
   {
-        s = analogRead(VBATM);
-        v = (s * 0.0048875)*3.875;
+        n = 0;
+        v = 0.0;
+        while (n<5)
+        {
+          s = analogRead(VBATM);
+          vi = (s * 0.0048875)*3.875;
+          if (v<vi)
+            v = vi;
+          delay(50);
+          n ++;
+        }
         debug_msg = "Voltaje Motor:";
         alarmas = alarmas & 253; // Pone a 0 el bit(2)
-        if (v < MIN_VOL)
+        if (v < MIN_VOL && v > 1.0)
         {
           debug("Motor voltaje bajo !!", 2);
           alarmas = alarmas | 2; // Bateria motor baja. Pone a 1 el bit(2) 
@@ -642,8 +665,17 @@ String checkBatt(String batt)
   } 
    else
   {
-        s = analogRead(VBATS);
-        v = (s * 0.0048875)*3.875;
+        n = 0;
+        v = 0.0;
+        while (n<5)
+        {
+          s = analogRead(VBATS);
+          vi = (s * 0.0048875)*3.875;
+          if (v<vi)
+            v = vi;
+          delay(50);
+          n ++;
+        }
         debug_msg = "Voltaje Servicio:";
 
         alarmas = alarmas & 251; // Pone a 0 el bit(3) 
@@ -850,6 +882,8 @@ void processCommand(String cmd) {
     //Procesa comandos recibidos
     debug_msg = "Recibido cmd:";
     debug_msg.concat(cmd);
+    debug_msg.concat(" long:");
+    debug_msg.concat(cmd.length());
     debug(debug_msg, 1);
     // Comando lectura nivel sentina ->
     if (cmd.indexOf(WATER_HEADER) == 0&&cmd.length()==WATER_MSG_LEN)
