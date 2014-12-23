@@ -11,7 +11,6 @@
 **  -Detección intrusos
 **
 *********************************************************
-
 Mapa de pines:
 ------------------------------------
 00: Rx Serial
@@ -34,7 +33,6 @@ A2:
 A3:
 A4: SDA para LCD
 A5: SCL para LCD
-
 */
 
 #include <stdlib.h>
@@ -214,7 +212,9 @@ void setup()
   pinMode(SGAS, INPUT); 
   pinMode(PUMP, OUTPUT);
   pinMode(WATER, INPUT);
-  pinMode(ROBO, INPUT);  
+  pinMode(ROBO, INPUT);
+  
+  digitalWrite(ROBO, HIGH);  // Habilita internal pullup
   digitalWrite(WATER, HIGH);  // Habilita internal pullup
   digitalWrite(PUMP, HIGH);
   
@@ -247,7 +247,7 @@ void loop()
   // Display
   LCDStatus();
   // Config
-  config();
+  //config();
   
   delay(500);
 }
@@ -317,26 +317,14 @@ void _GSM()
 //
 void SMSAlertas()
 {
-  if (netGSM == 0)
+   if (netGSM == 0)
     return; // El GSM no esta conectado
- 
-
-  if (SEND_SMS_ALARM != 0 && (alarmas|0) > 0)
+  if (alarmas > 0)
   {
-     GSM.println(F("AT+CMGF=1"));
-     delay(100);
-     ProcessGSM();
-     
-     comm_msg = "AT+CMGS=\"";
-     comm_msg.concat(TLF_SMS);
-     comm_msg.concat("\"");
-     GSM.println(comm_msg);
-     delay(100);
-     ProcessGSM();
-
      // Alerta Demasiados Achiques
-     if ((alarmas & 1) == 1)
+     if ((alarmas & 1) == 1 && (SEND_SMS_ALARM & 1) == 0)
      {
+        begin_sms();
         GSM.println(F("Demasiados achiques!"));
         delay(100);
         ProcessGSM();
@@ -345,39 +333,65 @@ void SMSAlertas()
         GSM.print(comm_msg);
         delay(100);
 	SEND_SMS_ALARM = SEND_SMS_ALARM | 1; // bit(1) a 1
+        end_SMS();
      } 
      // Alerta Bateria Motor baja
-     else if ((alarmas & 2) == 2)
+     else if ((alarmas & 2) == 2 && (SEND_SMS_ALARM & 2) == 0)
      {
+        begin_sms();
         GSM.println(F("Voltaje bateria motor bajo!"));
-        SEND_SMS_ALARM = SEND_SMS_ALARM | 4; // bit(2) a 1
+        SEND_SMS_ALARM = SEND_SMS_ALARM | 2; // bit(2) a 1
+        end_SMS();
      }
      // Alerta Bateria Servicio baja
-     else if ((alarmas & 4) == 4)
+     else if ((alarmas & 4) == 4 && (SEND_SMS_ALARM & 4) == 0)
      {
+        begin_sms();
         GSM.println(F("Voltaje bateria servicio bajo!"));
 	SEND_SMS_ALARM = SEND_SMS_ALARM | 4; // bit(3) a 1
+        end_SMS();
      }
      // Alerta Gas detectado
-     else if ((alarmas & 8) == 8)
+     else if ((alarmas & 8) == 8 && (SEND_SMS_ALARM & 8) == 0)
      {
+        begin_sms();
         GSM.println(F("Detectado gas!"));
 	SEND_SMS_ALARM = SEND_SMS_ALARM | 8; // bit(4) a 1
+        end_SMS();
      }
      // Alerta Intruso detectado
-     else if ((alarmas & 8) == 16)
+     else if ((alarmas & 16) == 16 && (SEND_SMS_ALARM & 16) == 0)
      {
+        begin_sms();
         GSM.println(F("Detectado intruso a bordo!"));
 	SEND_SMS_ALARM = SEND_SMS_ALARM | 16; // bit(5) a 1
+        end_SMS();
      }
+  }
+}
+
+void begin_sms()
+{
+   GSM.println(F("AT+CMGF=1"));
+   delay(100);
+   ProcessGSM();
+   
+   comm_msg = "AT+CMGS=\"";
+   comm_msg.concat(TLF_SMS);
+   comm_msg.concat("\"");
+   GSM.println(comm_msg);
+   delay(100);
+   ProcessGSM();
+}
+
+void end_SMS()
+{
      delay(100);
-     ProcessGSM();
-     
+     ProcessGSM();  
      GSM.println((char)26);//ASCII para ctrl+z
      delay(100);
      ProcessGSM();
-     delay(500);  
-  }
+     delay(500); 
 }
 
 //
@@ -618,7 +632,7 @@ String checkBatt(String batt)
         s = analogRead(VBATM);
         v = (s * 0.0048875)*3.875;
         debug_msg = "Voltaje Motor:";
-        alarmas = alarmas & 126; // Pone a 0 el bit(2)
+        alarmas = alarmas & 253; // Pone a 0 el bit(2)
         if (v < MIN_VOL)
         {
           debug("Motor voltaje bajo !!", 2);
@@ -632,7 +646,7 @@ String checkBatt(String batt)
         v = (s * 0.0048875)*3.875;
         debug_msg = "Voltaje Servicio:";
 
-        alarmas = alarmas & 124; // Pone a 0 el bit(3) 
+        alarmas = alarmas & 251; // Pone a 0 el bit(3) 
         if (v < MIN_VOL && batt != "motor")
         {
            debug("Servicio voltaje bajo !!", 2);
@@ -678,7 +692,7 @@ void checkWater()
 //
 void checkGas()
 {
-   alarmas = alarmas & 120; // Pone a 0 el bit(4) 
+   alarmas = alarmas & 247; // Pone a 0 el bit(4) 
    volatile bool sensorgas = digitalRead(SGAS);
 
   // Chequea el sensor de gas.
@@ -698,8 +712,8 @@ void checkGas()
 //
 void checkRobo()
 {
-   alarmas = alarmas & 112; // Alarma intruso. Pone a 0 el bit(5)
-   if (digitalRead(ROBO) == LOW)
+   alarmas = alarmas & 239; // Alarma intruso. Pone a 0 el bit(5)
+   if (digitalRead(ROBO) == HIGH)
    {
       alarmas = alarmas | 16; // Activa alarma intruso. Pone a 1 el bit(5)  
       debug_msg = "Detecta intruso";
@@ -761,23 +775,30 @@ void LCDStatus()
       // Pagina 4 
       if ((alarmas & 1) == 1)
       {   
-        lcd.setCursor(0,1);
+        lcd.clear();
+        lcd.home();
+        //lcd.setCursor(0,1);
         lcd.print(F("ALARMA ACHIQUE!"));
-        delay(1000);
+        delay(1500);
       }
       if ((alarmas & 8) == 8)
       {  
-        lcd.setCursor(0,1);
+        lcd.clear();
+        lcd.home();
+        //lcd.setCursor(0,1);
         lcd.print(F("ALARMA GAS!"));
-        delay(1000);
+        delay(1500);
       }
       if ((alarmas & 16) == 16)
       { 
-        lcd.setCursor(0,1);
+        lcd.clear();
+        lcd.home();
+        //lcd.setCursor(0,1);
         lcd.print(F("ALARMA INTRUSO!"));
-        delay(1000);
+        delay(1500);
       }
       num_dis=0;
+      page_d_milis=0;
     }
     
   }
