@@ -36,16 +36,17 @@ A5: SCL para LCD
 */
 
 #include <stdlib.h>
+#include <EEPROM.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 
-#define NAME "ARDU-BOAT-M"
+#define NAME "BOAT-SAFE"
 #define VERSION "Ver. Beta"
 
 #define END_CMD '\r'       // Fin linea de comando
-#define INFO_ENABLED false  // Activa/desactiva debug información (0)
-#define DEBUG_ENABLED false // Activa/desactiva debug (1)
+#define INFO_ENABLED false // Activa/desactiva debug información (0)
+#define DEBUG_ENABLED false// Activa/desactiva debug (1)
 #define ALERT_ENABLED false // Activa/desactiva debug alertas (2)
 
 //--------------------------------------------------------------
@@ -66,13 +67,12 @@ long page_d_milis;           // Tiempo para que se cambie pagina el LCD
 //
 // GA -> pulsa el boton power en la shield GSM
 //
-#define GSM_HEADER "G"  // Tag del comado Bomba achique
-#define GSM_MSG_LEN 2   // Longitud del comando Bomba achique
-#define MODEM_HEADER "$"  // Reenvio de comando al modem GSM
+#define TLFSMS_HEADER "TF"  // Tag del comando tlf envio sms
+#define TLFSMS_LEN 13       // Longitud del comando tlf envio sms ej.34123123123
 #define MODEM_TIME_CHK 14000 // ms de funcionamiento en modo automatico
-#define TLF_CALL "********" // Telefono permitido requerimiento SMS
-#define TLF_SMS "+***********" // Telefono al que se envian los SMS
 #define RESET_GSM 9       // Pin Reset de la placa GSM
+String tlf_sms;            // Telefono al que se envian los SMS
+String tlf_auth;           // Telefono autorizado a interrogar
 SoftwareSerial GSM(7, 8); // Usa sensores digitales 7RX y 8TX
 String gsmbuf;          // buffer array para recibir datos
 long chk_m_milis = 0;   // Tiempo en que deberia pararse automaticamente la bomba
@@ -112,8 +112,6 @@ byte SEND_SMS_ALARM = 0; // Indicador de alarma enviada por SMS (bitmap)
 // W
 //
 #define WATER 11         // Nivel del agua (Digital In)
-#define WATER_HEADER "W" // Tag del comando nivel de agua sentina
-#define WATER_MSG_LEN 1  // Longitud del comando nivel de agua sentina
 #define WATER_INTERVAL_VAL 5000  // Intervalo ms para comparar niveles
 
 bool waterState = 0; // Estado del sensor boya
@@ -129,7 +127,7 @@ bool waterState = 0; // Estado del sensor boya
 #define PUMP_HEADER "A"  // Tag del comando Bomba achique
 #define PUMP_MSG_LEN 2   // Longitud del comando Bomba achique
 #define PUMP_TIME_AUTO 12000 // ms de funcionamiento en modo automatico
-#define PUMP_MAX_START 4     // Maximo numero de activaciones por periodo
+#define PUMP_MAX_START 2     // Maximo numero de activaciones por periodo
 #define PUMP_TIME_MAX_START 400000 // Periodo en el que se evalua el numero de marchas de la bomba
 
 byte flag_a = 0;     // Si 0 sin activacion 1 inicio bomba si 2 esperando duracion para apagar
@@ -155,14 +153,6 @@ byte num_starts = 0; // Conteo de marchas automaticas bomba
 //
 //
 #define ROBO 3       // Pin(interrupciones) alarma de robo
-
-//---------------------------------------------------------------
-// Botones setup
-//
-//
-#define BOTON_MAS 4    // Boton +
-#define BOTON_MENOS 5  // Boton -
-
 
 //--------------------------------------------------------------
 
@@ -200,14 +190,37 @@ void setup()
   lcd.print (VERSION);
   
   GSMPower();                 // Activa shiled GSM
+  
+  // Lee TLF SMS guardado en eeprom
+  // formato prefijo pais y tlf
+  // p.e. 34123123123
+  for (int i = 0; i < 11; i++)
+  {
+    sindex = EEPROM.read(i);
+    if (sindex > 47 || sindex < 58 )
+      tlf_sms.concat(char(sindex));
+    else
+      tlf_sms.concat("*");
+  }
+  // Lee TLF AUTORIZADO guardado en eeprom
+  // formato 9 digitos tlf
+  // p.e. 123123123
+  for (int i = 11; i < 20; i++)
+  {
+    sindex = EEPROM.read(i);
+    if (sindex > 47 || sindex < 58 )
+      tlf_auth.concat(char(sindex));
+    else
+      tlf_auth.concat("*");
+  }
+  
+  
+  
   lcd.clear();
   lcd.home();
   lcd.print(F("Mode Remote"));
   
   pinMode(RESET_GSM, OUTPUT);
-  
-  pinMode(BOTON_MAS, INPUT);
-  pinMode(BOTON_MENOS, INPUT);
   
   pinMode(SGAS, INPUT); 
   pinMode(PUMP, OUTPUT);
@@ -246,60 +259,11 @@ void loop()
 
   // Display
   LCDStatus();
-  // Config
-  //config();
   
   delay(500);
 }
 
 //**********************************************************************************************************************
-//
-// Gestion SETUP >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<>>>>>>>>>>>>>>>>>>>>>>>>>
-//
-void config()
-{
-  byte estadoBoton_mas   = 0;
-  byte estadoBoton_menos = 0;
-  byte boton_mas = 0;
-  byte boton_menos = 0;
-  estadoBoton_mas   = digitalRead(BOTON_MAS);
-  estadoBoton_menos = digitalRead(BOTON_MENOS);
-  if (estadoBoton_mas == HIGH && estadoBoton_menos == HIGH)
-  {
-     lcd.clear();
-     lcd.home();
-     lcd.print(F("Modo SETUP"));
-     delay(1000);
-     mode = 1;
-  } 
-  while (mode == 1)
-  {
-    estadoBoton_mas   = digitalRead(BOTON_MAS);
-    estadoBoton_menos = digitalRead(BOTON_MENOS);
-    
-    
-    
-    if (estadoBoton_mas == HIGH && estadoBoton_menos == HIGH)
-    {
-      lcd.setCursor ( 0, 1 );     // Segunda linea del display
-      lcd.print (F("Fin"));
-      mode = 0;
-    }
-    else if (estadoBoton_mas == HIGH)
-    {
-      lcd.setCursor ( 0, 1 );     // Segunda linea del display
-      lcd.print (F("+"));
-    }
-    else if (estadoBoton_menos == HIGH)
-    {
-      lcd.setCursor ( 0, 1 );     // Segunda linea del display
-      lcd.print (F("-"));
-    }
-    delay (200);
-  }
-}
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<>>>>>>>>>>>>>>>>>>>>>>>>> Gestion SETUP
 //
 // Comunicaciones GSM >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //
@@ -377,7 +341,7 @@ void begin_sms()
    ProcessGSM();
    
    comm_msg = "AT+CMGS=\"";
-   comm_msg.concat(TLF_SMS);
+   comm_msg.concat(tlf_sms);
    comm_msg.concat("\"");
    GSM.println(comm_msg);
    delay(100);
@@ -388,7 +352,7 @@ void end_SMS()
 {
      delay(100);
      ProcessGSM();  
-     GSM.println((char)26);//ASCII para ctrl+z
+     GSM.println((char)26); //ASCII para ctrl+z
      delay(100);
      ProcessGSM();
      delay(500); 
@@ -407,13 +371,16 @@ void ProcessGSM()
     String st;
     gsmbuf = "";
     int i;
+    lcd.clear();
+    lcd.home();
     while(GSM.available()) // Leer caracteres del mensaje del modem
     {
       c = GSM.read();
+      lcd.print(c);
       gsmbuf = gsmbuf + c;  // Escribe caracteres en el buffer
       // Revisa si se trata una llamada entrante ->
       comm_msg = "+CLIP: \"";
-      comm_msg.concat(TLF_CALL);
+      comm_msg.concat(tlf_auth);
       comm_msg.concat("\"");
       if (gsmbuf.indexOf(comm_msg)>0)
       {
@@ -444,13 +411,13 @@ void ProcessGSM()
       i = gsmbuf.indexOf("\n",i+1);
       if (i>-1)
       {
-         st = gsmbuf.substring(i+1,gsmbuf.length()-2);
+         st = gsmbuf.substring(i+1,gsmbuf.length()-2); // Todo el mensaje
       }     
-      processCommand(st);
-    }
+      processCommand(st); // Revisa si es un comando conocido
+    }  // <-- Revisa SMS recibido
 
-    Serial.print(F("\r\nGSM>"));
-    Serial.print(gsmbuf);  // Imprime mensaje en el puerto Serie
+    //Serial.print(F("\r\nGSM>"));
+    //Serial.print(gsmbuf);  // Imprime mensaje en el puerto Serie
   }
 
 }
@@ -495,7 +462,7 @@ void SMSEstado()
   ProcessGSM();
   
   comm_msg = "AT+CMGS=\"";
-  comm_msg.concat(TLF_SMS);
+  comm_msg.concat(tlf_sms);
   comm_msg.concat("\"");
   GSM.println(comm_msg);
   delay(300);
@@ -763,7 +730,7 @@ void LCDStatus()
   if (millis() > page_d_milis)
   {
     page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
-    lcd.clear();
+    lcd.init();           // Inicializa el lcd 
     lcd.home();
     if (num_dis==0)
     {
@@ -791,12 +758,13 @@ void LCDStatus()
     } else if (num_dis==2)
     {
       // Pagina 3    
-      lcd.print(F("Modem GSM"));
+      lcd.print(F("SMS:"));
+      lcd.print(tlf_sms);
       lcd.setCursor(0,1);
       if (netGSM==0)
-        lcd.print(F("No conectado"));
+        lcd.print(F("GSM No conec."));
       else
-        lcd.print(F("Conectado"));
+        lcd.print(F("GSM Conectado"));
       if (alarmas!=0) // Alarma Demasidas marchas de bomba
         num_dis = 3;
       else
@@ -809,7 +777,6 @@ void LCDStatus()
       {   
         lcd.clear();
         lcd.home();
-        //lcd.setCursor(0,1);
         lcd.print(F("ALARMA ACHIQUE!"));
         delay(1500);
       }
@@ -817,7 +784,6 @@ void LCDStatus()
       {  
         lcd.clear();
         lcd.home();
-        //lcd.setCursor(0,1);
         lcd.print(F("ALARMA GAS!"));
         delay(1500);
       }
@@ -825,7 +791,6 @@ void LCDStatus()
       { 
         lcd.clear();
         lcd.home();
-        //lcd.setCursor(0,1);
         lcd.print(F("ALARMA INTRUSO!"));
         delay(1500);
       }
@@ -885,22 +850,7 @@ void processCommand(String cmd) {
     debug_msg.concat(" long:");
     debug_msg.concat(cmd.length());
     debug(debug_msg, 1);
-    // Comando lectura nivel sentina ->
-    if (cmd.indexOf(WATER_HEADER) == 0&&cmd.length()==WATER_MSG_LEN)
-    {
-      debug_msg = "Valor nivel agua sentina: ";
-      if (digitalRead(WATER) == HIGH)
-      {
-        debug_msg.concat("LLENO");
-        debug(debug_msg, 0);
-      }
-      else
-      {
-        debug_msg.concat("VACIO");
-        debug(debug_msg, 0);
-      }
-    }// <-- Comando lectura nivel sentina
-
+   
     // Comando bomba achique ->
     if (cmd.indexOf(PUMP_HEADER) == 0 && cmd.length()==PUMP_MSG_LEN)
     {
@@ -939,27 +889,28 @@ void processCommand(String cmd) {
       }
       
     }// <- Comando reset alarmas
-    
-    // Comando para el modem GSM ->
-    if (cmd.indexOf(MODEM_HEADER)==0)
-    {
-      int i = cmd.indexOf('#');
-      GSM.println(cmd.substring(0,i));
-      ProcessGSM();
-      delay(200);
-    }// <- Comando para el modem GSM
-    
-    // Comando para shield GSM ->
-    if (cmd.indexOf(GSM_HEADER)==0)
-    {
-      char c = cmd[1];
       
-      if (c == 'A') // Acciones ->
+    // Comando para guardar TLF SMS y TLF AUTH->
+    if (cmd.indexOf(TLFSMS_HEADER)==0 && cmd.length()== TLFSMS_LEN)
+    {
+      // Guarda en la eeprom tlf_sms
+      tlf_sms = "";
+      for (int i = 0; i < 11; i++)
       {
-        GSMPower();
+        char c = cmd[i+3];
+        EEPROM.write(i,c);
+        tlf_sms.concat(c);
       }
-      
-    }// <- Comando para shield GSM
+      // Guarda en la eeprom tlf_auth
+      tlf_auth = "";
+      for (int i = 0; i < 9; i++)
+      {
+        char c = cmd[i+5];
+        EEPROM.write(i+11,c);
+        tlf_auth.concat(c);
+      }
+     
+    }// <- Comando para guardar TLF SMS y TLF AUTH
 
 }// <- processCommand
 
