@@ -4,8 +4,8 @@
 <p>Monitorización estado del barco con arduino.</p>
 
 <ul>
-<li>Voltage bateria motor</li>
-<li>Voltage bateria servicio</li>
+<li>Voltaje bateria motor</li>
+<li>Voltaje bateria servicio</li>
 <li>Chequeo agua en sentina</li>
 <li>Chequeo escape gas butano</li>
 <li>Alarma de intruso</li>
