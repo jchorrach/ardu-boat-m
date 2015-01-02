@@ -181,29 +181,6 @@ void setup()
   
   GSMPower();                 // Activa shiled GSM
   
-  // escritura eeprom
-  //EEPROM.write(0,'3');
-  //EEPROM.write(1,'4');
-  //EEPROM.write(2,'6');
-  //EEPROM.write(3,'3');
-  //EEPROM.write(4,'9');
-  //EEPROM.write(5,'6');
-  //EEPROM.write(6,'3');
-  //EEPROM.write(7,'5');
-  //EEPROM.write(8,'7');
-  //EEPROM.write(9,'5');
-  //EEPROM.write(10,'1');
-  
-  //EEPROM.write(11,'6');
-  //EEPROM.write(12,'3');
-  //EEPROM.write(13,'9');
-  //EEPROM.write(14,'6');
-  //EEPROM.write(15,'3');
-  //EEPROM.write(16,'5');
-  //EEPROM.write(17,'7');
-  //EEPROM.write(18,'5');
-  //EEPROM.write(19,'1');
-  
   // Lee TLF SMS guardado en eeprom
   // formato prefijo pais y tlf
   // p.e. 34123123123
