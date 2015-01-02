@@ -41,12 +41,13 @@ A5: SCL para LCD
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 
-#define NAME "BOAT-SAFE"
-#define VERSION "Ver. Beta"
+#define NAME "BOAT-SAFE"     // Nombre del producto
+#define VERSION "Ver. Beta"  // Version
 
 #define END_CMD '\r'       // Fin linea de comando
-#define INFO_ENABLED false // Activa/desactiva debug información (0)
-#define DEBUG_ENABLED false// Activa/desactiva debug (1)
+
+#define INFO_ENABLED  false // Activa/desactiva debug información (0)
+#define DEBUG_ENABLED false // Activa/desactiva debug (1)
 #define ALERT_ENABLED false // Activa/desactiva debug alertas (2)
 
 //--------------------------------------------------------------
@@ -54,7 +55,7 @@ A5: SCL para LCD
 // 
 // LCD1602 controlado via adaptador I2C
 //
-#define LCD_TIME_PAG 3500   // ms para cambio de pagina display LCD
+#define LCD_TIME_PAG 3500    // ms para cambio de pagina display LCD
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 byte num_dis = 0;            // Pagina que se enseña en el display
 long page_d_milis;           // Tiempo para que se cambie pagina el LCD
@@ -65,18 +66,16 @@ long page_d_milis;           // Tiempo para que se cambie pagina el LCD
 //
 // SIM900 shield
 //
-// GA -> pulsa el boton power en la shield GSM
-//
-#define TLFSMS_HEADER "TF"  // Tag del comando tlf envio sms
-#define TLFSMS_LEN 13       // Longitud del comando tlf envio sms ej.34123123123
+#define TLFSMS_HEADER "TS"   // Tag del comando tlf envio sms
+#define TLFSMS_LEN 13        // Longitud del comando tlf envio sms ej.34123123123
 #define MODEM_TIME_CHK 14000 // ms de funcionamiento en modo automatico
-#define RESET_GSM 9       // Pin Reset de la placa GSM
-String tlf_sms;            // Telefono al que se envian los SMS
-String tlf_auth;           // Telefono autorizado a interrogar
-SoftwareSerial GSM(7, 8); // Usa sensores digitales 7RX y 8TX
-String gsmbuf;          // buffer array para recibir datos
-long chk_m_milis = 0;   // Tiempo en que deberia pararse automaticamente la bomba
-byte netGSM = 0;        // Indica si hay conexion de red GSM (0 No, 1 Si)
+#define RESET_GSM 9          // Pin Reset de la placa GSM
+String tlf_sms;              // Telefono al que se envian los SMS
+String tlf_auth;             // Telefono autorizado a interrogar
+SoftwareSerial GSM(7, 8);    // Usa sensores digitales 7RX y 8TX
+String gsmbuf;               // buffer array para recibir datos
+long chk_m_milis = 0;        // Tiempo en que deberia pararse automaticamente la bomba
+byte netGSM = 0;             // Indica si hay conexion de red GSM (0 No, 1 Si)
 
 //....................... SEND_SMS_ALARM .......................
 byte SEND_SMS_ALARM = 0; // Indicador de alarma enviada por SMS (bitmap)
@@ -92,24 +91,15 @@ byte SEND_SMS_ALARM = 0; // Indicador de alarma enviada por SMS (bitmap)
 
 //--------------------------------------------------------------
 // Setup
-// S<valor>
-// SW5 -> Aplica el valor al parametro de nivel agua
-// SA0 -> Asigna valor al contador de intentos Achique
+// CMD: S<valor>
+// CMD: SA0 -> Reset alarmas y contador achique
 //
 #define SETUP_HEADER "S" // Tag del comando setup
 #define SETUP_MSG_LEN 3  // Longitud del comando setup
 
 
 //--------------------------------------------------------------
-// Status del sistema
-// S
-//
-#define STATUS_HEADER "S" // Tag del comando status
-#define STATUS_MSG_LEN 1  // Longitud del comando status
-
-//--------------------------------------------------------------
 // Nivel del agua en sentina
-// W
 //
 #define WATER 11         // Nivel del agua (Digital In)
 #define WATER_INTERVAL_VAL 5000  // Intervalo ms para comparar niveles
@@ -118,10 +108,10 @@ bool waterState = 0; // Estado del sensor boya
 
 //--------------------------------------------------------------
 // Comado bomba de achique
-// A<valor>
-// AS -> En marcha bomba de achique 
-// AA -> En marcha bomba de achique con stop automatico
-// AN -> Para bomba de achique
+// CMD: A<valor>
+// CMD: AS -> En marcha bomba de achique 
+// CMD: AA -> En marcha bomba de achique con stop automatico
+// CMD: AN -> Para bomba de achique
 //
 #define PUMP 12          // Control rele bomba (Digital Out)
 #define PUMP_HEADER "A"  // Tag del comando Bomba achique
@@ -156,7 +146,7 @@ byte num_starts = 0; // Conteo de marchas automaticas bomba
 
 //--------------------------------------------------------------
 
-//-------------------------- alarmas ---------------------------
+//-------------------------- Alarmas ---------------------------
 byte alarmas = 0; // Indicador de alramas activas (bitmap)
 //
 //  00000000
@@ -175,7 +165,7 @@ char c_string[20]; // String que contendra el comando recibido
 int sindex = 0;    // Indice del proximo caracter en el string
 
 long fin_time_starts; // Tiempo de inicio de evaluacion marchas bomba
-byte mode = 0;     // 0-monitor/ 1-Setup 
+
 //**********************************************************************************************************************
 
 void setup()
@@ -190,6 +180,29 @@ void setup()
   lcd.print (VERSION);
   
   GSMPower();                 // Activa shiled GSM
+  
+  // escritura eeprom
+  //EEPROM.write(0,'3');
+  //EEPROM.write(1,'4');
+  //EEPROM.write(2,'6');
+  //EEPROM.write(3,'3');
+  //EEPROM.write(4,'9');
+  //EEPROM.write(5,'6');
+  //EEPROM.write(6,'3');
+  //EEPROM.write(7,'5');
+  //EEPROM.write(8,'7');
+  //EEPROM.write(9,'5');
+  //EEPROM.write(10,'1');
+  
+  //EEPROM.write(11,'6');
+  //EEPROM.write(12,'3');
+  //EEPROM.write(13,'9');
+  //EEPROM.write(14,'6');
+  //EEPROM.write(15,'3');
+  //EEPROM.write(16,'5');
+  //EEPROM.write(17,'7');
+  //EEPROM.write(18,'5');
+  //EEPROM.write(19,'1');
   
   // Lee TLF SMS guardado en eeprom
   // formato prefijo pais y tlf
@@ -228,11 +241,11 @@ void setup()
   pinMode(ROBO, INPUT);
   
   digitalWrite(ROBO, HIGH);  // Habilita internal pullup
-  digitalWrite(WATER, HIGH);  // Habilita internal pullup
-  digitalWrite(PUMP, HIGH);
+  digitalWrite(WATER, HIGH); // Habilita internal pullup
+  digitalWrite(PUMP, HIGH);  // Habilita internal pullup
   
  
-  flag_a = 0;                 // Bomba automatica desactivada
+  flag_a = 0;                // Bomba automatica desactivada
 
   fin_time_starts = PUMP_TIME_MAX_START;  // Tiempo limite para evaluar marchas automaticas
   
@@ -335,7 +348,9 @@ void SMSAlertas()
 }
 
 void begin_sms()
-{
+{ 
+   // Secuencia de inicio de envio de
+   // mensaje SMS
    GSM.println(F("AT+CMGF=1"));
    delay(100);
    ProcessGSM();
@@ -350,6 +365,8 @@ void begin_sms()
 
 void end_SMS()
 {
+     // Secuencia de finalizacion de
+     // mensaje SMS
      delay(100);
      ProcessGSM();  
      GSM.println((char)26); //ASCII para ctrl+z
@@ -371,12 +388,9 @@ void ProcessGSM()
     String st;
     gsmbuf = "";
     int i;
-    lcd.clear();
-    lcd.home();
     while(GSM.available()) // Leer caracteres del mensaje del modem
     {
       c = GSM.read();
-      lcd.print(c);
       gsmbuf = gsmbuf + c;  // Escribe caracteres en el buffer
       // Revisa si se trata una llamada entrante ->
       comm_msg = "+CLIP: \"";
@@ -416,8 +430,6 @@ void ProcessGSM()
       processCommand(st); // Revisa si es un comando conocido
     }  // <-- Revisa SMS recibido
 
-    //Serial.print(F("\r\nGSM>"));
-    //Serial.print(gsmbuf);  // Imprime mensaje en el puerto Serie
   }
 
 }
@@ -432,7 +444,7 @@ void ChkGSM()
    chk_m_milis = millis() + MODEM_TIME_CHK; // Proximo chequeo red GSM
   else
     return;
-  //debug("AT+COPS?",1);
+
   GSM.println(F("AT+COPS?"));
   delay(100);
   ProcessGSM();
@@ -758,7 +770,7 @@ void LCDStatus()
     } else if (num_dis==2)
     {
       // Pagina 3    
-      lcd.print(F("SMS:"));
+      lcd.print(F("SMS A:"));
       lcd.print(tlf_sms);
       lcd.setCursor(0,1);
       if (netGSM==0)
@@ -799,26 +811,6 @@ void LCDStatus()
     }
     
   }
-}
-
-void status()
-{
-  
-  debug_msg = "Bat. Motor: ";
-  debug_msg.concat(checkBatt("motor"));
-  debug_msg.concat("\n\rBat. Servicio: ");
-  debug_msg.concat(checkBatt("servicio"));
-  if (digitalRead(WATER)==LOW)
-    debug_msg.concat("\n\rSentina: vacia");
-  else
-    debug_msg.concat("\n\rSentina: llena");
-  debug_msg.concat("\n\rAchiques: ");
-  debug_msg.concat(num_starts);
-  if (num_starts > PUMP_MAX_START) // Demasidas marchas de bomba
-  {
-    debug_msg.concat("\n\rALARMA ACHIQUE!");
-  }
-  debug(debug_msg, 0);
 }
 
 //
@@ -870,12 +862,7 @@ void processCommand(String cmd) {
       }// <- Acciones
     }// <- Comando bomba achique
     
-    // Comando status ->
-    if (cmd.indexOf(STATUS_HEADER) == 0 && cmd.length()==STATUS_MSG_LEN)
-    {
-      status();
-    }// <- Comando status
-    
+        
     // Comando reset alarmas ->
     if (cmd.indexOf(SETUP_HEADER)==0 && cmd.length()== SETUP_MSG_LEN)
     {
@@ -894,20 +881,16 @@ void processCommand(String cmd) {
     if (cmd.indexOf(TLFSMS_HEADER)==0 && cmd.length()== TLFSMS_LEN)
     {
       // Guarda en la eeprom tlf_sms
-      tlf_sms = "";
       for (int i = 0; i < 11; i++)
       {
         char c = cmd[i+3];
         EEPROM.write(i,c);
-        tlf_sms.concat(c);
       }
       // Guarda en la eeprom tlf_auth
-      tlf_auth = "";
       for (int i = 0; i < 9; i++)
       {
         char c = cmd[i+5];
         EEPROM.write(i+11,c);
-        tlf_auth.concat(c);
       }
      
     }// <- Comando para guardar TLF SMS y TLF AUTH
