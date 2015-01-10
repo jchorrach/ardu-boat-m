@@ -44,11 +44,32 @@ A5: SCL para LCD
 #define NAME "BOAT-SAFE"     // Nombre del producto
 #define VERSION "Ver. Beta"  // Version
 
-#define END_CMD '\r'       // Fin linea de comando
+#define END_CMD '\r'         // Fin linea de comando
 
-#define INFO_ENABLED  false // Activa/desactiva debug información (0)
-#define DEBUG_ENABLED false // Activa/desactiva debug (1)
-#define ALERT_ENABLED false // Activa/desactiva debug alertas (2)
+#define INFO_ENABLED  false  // Activa/desactiva debug información (0)
+#define DEBUG_ENABLED false  // Activa/desactiva debug (1)
+#define ALERT_ENABLED false  // Activa/desactiva debug alertas (2)
+
+//--------------------------------------------------------------
+// CONFIG
+//
+#define CONFIG_HEADER "CF"   // Tag del comando configuracion
+#define CONFIG_LEN 5         // Longitud del tag CO000 - CO255
+byte CONFIG = 7; // Configuracion funcional
+//
+//  00000000
+//  |||||||+--- bit(1): si 1 Sensor AGUA activado
+//  ||||||+-----bit(2): si 1 Sensor INTRUSO activado
+//  |||||+------bit(3): si 1 Sensor GAS activado
+//  ||||+-------bit(4): 
+//  |||+--------bit(5): 
+//  ||+---------bit(6):
+//  |+----------bit(7):
+//  +-----------bit(8):
+//
+//..............................................................
+
+
 
 //--------------------------------------------------------------
 // Display LCD
@@ -170,16 +191,41 @@ long fin_time_starts; // Tiempo de inicio de evaluacion marchas bomba
 
 void setup()
 {
-  Serial.begin(9600);   // Inicializa monitor Serie
-  GSM.begin(19200);     // Inicializa Modem GSM
-  lcd.init();           // Inicializa el lcd 
+  Serial.begin(9600);    // Inicializa monitor Serie
+  GSM.begin(19200);      // Inicializa Modem GSM
+  lcd.init();            // Inicializa el lcd 
   lcd.backlight();
-  lcd.home ();                // Primera linea y columna del display
+  lcd.clear();           // Primera linea y columna del display
   lcd.print(NAME);
-  lcd.setCursor ( 0, 1 );     // Segunda linea del display
+  lcd.setCursor ( 0, 1 );// Segunda linea del display
   lcd.print (VERSION);
   
-  GSMPower();                 // Activa shiled GSM
+  GSMPower();            // Activa shiled GSM
+  
+  // escritura eeprom
+  //EEPROM.write(0,'3');
+  //EEPROM.write(1,'4');
+  //EEPROM.write(2,'6');
+  //EEPROM.write(3,'3');
+  //EEPROM.write(4,'9');
+  //EEPROM.write(5,'6');
+  //EEPROM.write(6,'3');
+  //EEPROM.write(7,'5');
+  //EEPROM.write(8,'7');
+  //EEPROM.write(9,'5');
+  //EEPROM.write(10,'1');
+  
+  //EEPROM.write(11,'6');
+  //EEPROM.write(12,'3');
+  //EEPROM.write(13,'9');
+  //EEPROM.write(14,'6');
+  //EEPROM.write(15,'3');
+  //EEPROM.write(16,'5');
+  //EEPROM.write(17,'7');
+  //EEPROM.write(18,'5');
+  //EEPROM.write(19,'1');
+  
+  //EEPROM.write(25,6);
   
   // Lee TLF SMS guardado en eeprom
   // formato prefijo pais y tlf
@@ -204,7 +250,7 @@ void setup()
       tlf_auth.concat("*");
   }
   
-  
+  CONFIG = EEPROM.read(25);
   
   lcd.clear();
   lcd.home();
@@ -237,14 +283,27 @@ void loop()
     reciveCommand();
   }
   // Chequeo agua en la sentina
-  checkWater();
+  if ( CONFIG & 1 == 1 )
+  {
+    checkWater();
+  }
+  
   // Chequeo estado funcionamiento bomba automatico
   autoPump();
+  
   // Chequeo gas
-  checkGas();
-  //Chequeo intruso
-  checkRobo();
-  // Gerstion modem GSM
+  if ( CONFIG & 4 == 4 )
+  {
+    checkGas();
+  }
+  
+  // Chequeo intruso
+  if ( CONFIG & 2 == 2 )
+  {
+    checkRobo();
+  }
+  
+  // Gestion modem GSM
   _GSM();
 
   // Display
@@ -369,6 +428,7 @@ void ProcessGSM()
     {
       c = GSM.read();
       gsmbuf = gsmbuf + c;  // Escribe caracteres en el buffer
+    
       // Revisa si se trata una llamada entrante ->
       comm_msg = "+CLIP: \"";
       comm_msg.concat(tlf_auth);
@@ -407,8 +467,8 @@ void ProcessGSM()
       processCommand(st); // Revisa si es un comando conocido
     }  // <-- Revisa SMS recibido
 
+    debug(gsmbuf,1);
   }
-
 }
 
 //
@@ -433,7 +493,7 @@ void ChkGSM()
 //
 void SMSEstado()
 {
-  Serial.print(gsmbuf);
+  //Serial.print(gsmbuf);
   // Avisar de envio en el LCD
   lcd.clear();
   lcd.home ();
@@ -604,7 +664,7 @@ String checkBatt(String batt)
         while (n<5)
         {
           s = analogRead(VBATM);
-          vi = (s * 0.0048875)*3.875;
+          vi = (s * 0.0048875)*3.95;
           if (v<vi)
             v = vi;
           delay(50);
@@ -626,7 +686,7 @@ String checkBatt(String batt)
         while (n<5)
         {
           s = analogRead(VBATS);
-          vi = (s * 0.0048875)*3.875;
+          vi = (s * 0.0048875)*3.95;
           if (v<vi)
             v = vi;
           delay(50);
@@ -747,11 +807,11 @@ void LCDStatus()
     } else if (num_dis==2)
     {
       // Pagina 3    
-      lcd.print(F("SMS A:"));
+      lcd.print(F("SMS: "));
       lcd.print(tlf_sms);
       lcd.setCursor(0,1);
       if (netGSM==0)
-        lcd.print(F("GSM No conec."));
+        lcd.print(F("GSM No conectado"));
       else
         lcd.print(F("GSM Conectado"));
       if (alarmas!=0) // Alarma Demasidas marchas de bomba
@@ -871,6 +931,15 @@ void processCommand(String cmd) {
       }
      
     }// <- Comando para guardar TLF SMS y TLF AUTH
+    
+    // Comando para guardar la configuracion ->
+    if (cmd.indexOf(CONFIG_HEADER)==0 && cmd.length()== CONFIG_LEN)
+    {
+      volatile int i = cmd.substring(3,3).toInt();
+      if (i < 256)
+      // Guarda config en la eeprom
+      EEPROM.write(25,(byte) i);
+    }// <- Comando para guardar la configuracion
 
 }// <- processCommand
 
@@ -881,21 +950,22 @@ void debug(String txt, int tipo)
 {
     if (INFO_ENABLED and tipo == 0)
     {
-      Serial.println(F("INFO------------------------>"));
-      Serial.println(txt);
-      Serial.println(F("<------------------------INFO"));
+      lcd.clear();
+      lcd.print(txt);
+      page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
     } 
     else if (DEBUG_ENABLED and tipo == 1)
     {
-      Serial.println(F("DEBUG----------------------->"));
-      Serial.println(txt);
-      Serial.println(F("<-----------------------DEBUG"));
+      lcd.clear();
+      lcd.print(txt);
+      page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
+
     } 
     else if (ALERT_ENABLED and tipo == 2)
     {
-      Serial.println(F("ALERT----------------------->"));
-      Serial.println(txt);
-      Serial.println(F("<-----------------------ALERT"));  
+      lcd.clear();
+      lcd.print(txt);
+      page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
     }
     
 }
