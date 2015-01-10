@@ -65,7 +65,7 @@ byte CONFIG = 7; // Configuracion funcional
 //  |||+--------bit(5): 
 //  ||+---------bit(6):
 //  |+----------bit(7):
-//  +-----------bit(8):
+//  +-----------bit(8): si 1 GMS activado por alarma
 //
 //..............................................................
 
@@ -200,8 +200,7 @@ void setup()
   lcd.setCursor ( 0, 1 );// Segunda linea del display
   lcd.print (VERSION);
   
-  GSMPower();            // Activa shiled GSM
-  
+    
   // escritura eeprom
   //EEPROM.write(0,'3');
   //EEPROM.write(1,'4');
@@ -253,8 +252,16 @@ void setup()
   CONFIG = EEPROM.read(25);
   
   lcd.clear();
-  lcd.home();
-  lcd.print(F("Mode Remote"));
+  if ( (CONFIG & B10000000) == 0 )
+  {
+    GSMPower();            // Activa shiled GSM
+    lcd.print(F("Modo Remoto"));
+  } 
+  else
+  {
+    lcd.print(F("Modo Alarma"));
+  }
+  
   
   pinMode(RESET_GSM, OUTPUT);
   
@@ -283,7 +290,7 @@ void loop()
     reciveCommand();
   }
   // Chequeo agua en la sentina
-  if ( CONFIG & 1 == 1 )
+  if ( (CONFIG & B00000001) == 1 )
   {
     checkWater();
   }
@@ -292,13 +299,13 @@ void loop()
   autoPump();
   
   // Chequeo gas
-  if ( CONFIG & 4 == 4 )
+  if ( (CONFIG & B00000100) == 4 )
   {
     checkGas();
   }
   
   // Chequeo intruso
-  if ( CONFIG & 2 == 2 )
+  if ( (CONFIG & B00000010) == 2 )
   {
     checkRobo();
   }
