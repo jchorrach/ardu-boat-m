@@ -49,7 +49,7 @@ A5: SCL para LCD
 #define INFO_ENABLED  false  // Activa/desactiva debug información (0)
 #define DEBUG_ENABLED false  // Activa/desactiva debug (1)
 #define ALERT_ENABLED false  // Activa/desactiva debug alertas (2)
-
+#define GSM_ENABLED   true   // Activa/desactiva debug GSM (3)
 //--------------------------------------------------------------
 // CONFIG
 //
@@ -201,30 +201,7 @@ void setup()
   lcd.print (VERSION);
   
     
-  // escritura eeprom
-  //EEPROM.write(0,'3');
-  //EEPROM.write(1,'4');
-  //EEPROM.write(2,'6');
-  //EEPROM.write(3,'3');
-  //EEPROM.write(4,'9');
-  //EEPROM.write(5,'6');
-  //EEPROM.write(6,'3');
-  //EEPROM.write(7,'5');
-  //EEPROM.write(8,'7');
-  //EEPROM.write(9,'5');
-  //EEPROM.write(10,'1');
-  
-  //EEPROM.write(11,'6');
-  //EEPROM.write(12,'3');
-  //EEPROM.write(13,'9');
-  //EEPROM.write(14,'6');
-  //EEPROM.write(15,'3');
-  //EEPROM.write(16,'5');
-  //EEPROM.write(17,'7');
-  //EEPROM.write(18,'5');
-  //EEPROM.write(19,'1');
-  
-  //EEPROM.write(25,6);
+ 
   
   // Lee TLF SMS guardado en eeprom
   // formato prefijo pais y tlf
@@ -474,7 +451,7 @@ void ProcessGSM()
       processCommand(st); // Revisa si es un comando conocido
     }  // <-- Revisa SMS recibido
 
-    debug(gsmbuf,1);
+    debug(gsmbuf,3);
   }
 }
 
@@ -787,7 +764,7 @@ void LCDStatus()
   {
     page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
     lcd.init();           // Inicializa el lcd 
-    lcd.home();
+    
     if (num_dis==0)
     {
       // Pagina 1
@@ -821,7 +798,7 @@ void LCDStatus()
         lcd.print(F("GSM No conectado"));
       else
         lcd.print(F("GSM Conectado"));
-      if (alarmas!=0) // Alarma Demasidas marchas de bomba
+      if (alarmas!=0) // Hay alguna alarma activada
         num_dis = 3;
       else
         num_dis = 0;
@@ -832,25 +809,23 @@ void LCDStatus()
       if ((alarmas & 1) == 1)
       {   
         lcd.clear();
-        lcd.home();
         lcd.print(F("ALARMA ACHIQUE!"));
         delay(1500);
       }
       if ((alarmas & 8) == 8)
       {  
         lcd.clear();
-        lcd.home();
         lcd.print(F("ALARMA GAS!"));
         delay(1500);
       }
       if ((alarmas & 16) == 16)
       { 
         lcd.clear();
-        lcd.home();
         lcd.print(F("ALARMA INTRUSO!"));
         delay(1500);
       }
       num_dis=0;
+     
       page_d_milis=0;
     }
     
@@ -885,7 +860,7 @@ void processCommand(String cmd) {
     debug_msg.concat(cmd);
     debug_msg.concat(" long:");
     debug_msg.concat(cmd.length());
-    debug(debug_msg, 1);
+    debug(debug_msg, 3);
    
     // Comando bomba achique ->
     if (cmd.indexOf(PUMP_HEADER) == 0 && cmd.length()==PUMP_MSG_LEN)
@@ -920,7 +895,7 @@ void processCommand(String cmd) {
       }
       
     }// <- Comando reset alarmas
-      
+    debug(cmd,3); 
     // Comando para guardar TLF SMS y TLF AUTH->
     if (cmd.indexOf(TLFSMS_HEADER)==0 && cmd.length()== TLFSMS_LEN)
     {
@@ -943,9 +918,10 @@ void processCommand(String cmd) {
     if (cmd.indexOf(CONFIG_HEADER)==0 && cmd.length()== CONFIG_LEN)
     {
       volatile int i = cmd.substring(3,3).toInt();
+      debug(String(lowByte(i),BIN),3);
       if (i < 256)
       // Guarda config en la eeprom
-      EEPROM.write(25,(byte) i);
+      EEPROM.write(25,lowByte(i));
     }// <- Comando para guardar la configuracion
 
 }// <- processCommand
@@ -974,5 +950,10 @@ void debug(String txt, int tipo)
       lcd.print(txt);
       page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
     }
-    
+    else if (GSM_ENABLED and tipo == 3)
+    {
+      lcd.clear();
+      lcd.print(txt);
+      page_d_milis = millis() + LCD_TIME_PAG; // Nuevo tiempo para cambiar pagina display
+    }
 }
