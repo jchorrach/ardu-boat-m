@@ -443,10 +443,10 @@ void ProcessGSM()
     i = gsmbuf.indexOf("+CMT: ");
     if (i>-1)
     {
-      i = gsmbuf.indexOf("\n",i+1);
+      i = gsmbuf.indexOf("\r\n",i+1);
       if (i>-1)
       {
-         st = gsmbuf.substring(i+1,gsmbuf.length()-2); // Todo el mensaje
+         st = gsmbuf.substring(i+2,gsmbuf.indexOf("\r\n",i+2)-i+2); // Primera linea del SMS
       }     
       processCommand(st); // Revisa si es un comando conocido
     }  // <-- Revisa SMS recibido
