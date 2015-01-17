@@ -17,7 +17,7 @@ Mapa de pines:
 01: Tx Serial
 02:< 
 03:<Alarma intrusos [ROBO] in
-04:
+04: Sensor de humedad y temperatura
 05:
 06:
 07: Rx tarjeta GSM
@@ -36,6 +36,7 @@ A5: SCL para LCD
 */
 
 #include <stdlib.h>
+#include "DHT.h"
 #include <EEPROM.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
@@ -64,7 +65,7 @@ byte CONFIG = 7; // Configuracion funcional
 //  ||||+-------bit(4): 
 //  |||+--------bit(5): 
 //  ||+---------bit(6):
-//  |+----------bit(7):
+//  |+----------bit(7): si 1 Sensor HUMEDAD/TEMP activado
 //  +-----------bit(8): si 1 GMS activado por alarma
 //
 //..............................................................
@@ -118,6 +119,17 @@ byte SEND_SMS_ALARM = 0; // Indicador de alarma enviada por SMS (bitmap)
 #define SETUP_HEADER "S" // Tag del comando setup
 #define SETUP_MSG_LEN 3  // Longitud del comando setup
 
+//--------------------------------------------------------------
+// Sensor humedad y temperatura DHT11
+//
+#define DHTPIN 4       // Detetor de humedad/temp (Digital in)
+#define DHTTYPE DHT11  // DHT 11 
+//#define DHTTYPE DHT22  // DHT 22  (AM2302)
+//#define DHTTYPE DHT21  // DHT 21 (AM2301)
+DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor for normal 16mhz Arduino
+float temp;  // Temperatura Celsius
+float hum;   // Humedad
+long  time_dht = 0;
 
 //--------------------------------------------------------------
 // Nivel del agua en sentina
@@ -201,7 +213,30 @@ void setup()
   lcd.print (VERSION);
   
     
- 
+  // escritura eeprom
+  //EEPROM.write(0,'3');
+  //EEPROM.write(1,'4');
+  //EEPROM.write(2,'6');
+  //EEPROM.write(3,'3');
+  //EEPROM.write(4,'9');
+  //EEPROM.write(5,'6');
+  //EEPROM.write(6,'3');
+  //EEPROM.write(7,'5');
+  //EEPROM.write(8,'7');
+  //EEPROM.write(9,'5');
+  //EEPROM.write(10,'1');
+  
+  //EEPROM.write(11,'6');
+  //EEPROM.write(12,'3');
+  //EEPROM.write(13,'9');
+  //EEPROM.write(14,'6');
+  //EEPROM.write(15,'3');
+  //EEPROM.write(16,'5');
+  //EEPROM.write(17,'7');
+  //EEPROM.write(18,'5');
+  //EEPROM.write(19,'1');
+  
+  EEPROM.write(25,70);
   
   // Lee TLF SMS guardado en eeprom
   // formato prefijo pais y tlf
@@ -238,6 +273,11 @@ void setup()
   {
     lcd.print(F("Modo Alarma"));
   }
+
+  if ( (CONFIG & B01000000) == 64 )
+  {
+     dht.begin();
+  } 
   
   
   pinMode(RESET_GSM, OUTPUT);
@@ -285,6 +325,12 @@ void loop()
   if ( (CONFIG & B00000010) == 2 )
   {
     checkRobo();
+  }
+  
+  // Chequeo humedad/temperatura
+  if ( (CONFIG & B01000000) == 64 )
+  {
+     checkDHT();
   }
   
   // Gestion modem GSM
@@ -447,7 +493,7 @@ void ProcessGSM()
       if (i>-1)
       {
          st = gsmbuf.substring(i+2,gsmbuf.indexOf("\r\n",i+2)-i+2); // Primera linea del SMS
-      }     
+      }        
       processCommand(st); // Revisa si es un comando conocido
     }  // <-- Revisa SMS recibido
 
@@ -522,6 +568,23 @@ void SMSEstado()
   GSM.print(comm_msg);
   delay(100);
   ProcessGSM();
+
+  if ( (CONFIG & B01000000) == 64 )
+  {
+   
+    comm_msg = "T: ";
+    comm_msg.concat(String(temp));
+    GSM.println(comm_msg);
+    delay(100);
+    ProcessGSM();
+    
+    comm_msg = "H: ";
+    comm_msg.concat(String(hum));
+    GSM.println(comm_msg);
+    delay(100);
+    ProcessGSM();
+  }
+  
   if ((alarmas & 1) == 1) // Alarma Demasidas marchas de bomba
     GSM.println(F("ALARMA ACHIQUE!"));
   delay(100);  
@@ -753,6 +816,23 @@ void checkRobo()
    }
 }
 
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Gestion detector gas butano
+//
+// Gestion humedad/temperatura >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//
+// Gestion de humedad/temperatura
+//
+void checkDHT()
+{
+  if ( millis() > time_dht + 2000 )
+  {
+    hum  = dht.readHumidity();
+    temp = dht.readTemperature();
+    time_dht = millis();
+  }
+}
+
+
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Gestion robo
 //
 // Status
@@ -787,8 +867,28 @@ void LCDStatus()
       comm_msg = "Achiques: ";
       comm_msg.concat(num_starts);
       lcd.print(comm_msg);
-      num_dis = 2;
+      if ( (CONFIG & B01000000) == 64 )
+         num_dis = 2;
+      else
+         num_dis = 3;
     } else if (num_dis==2)
+    {
+      if (isnan(hum) || isnan(temp) ) {
+        lcd.print(F("Error leyendo DHT"));
+      } 
+      else
+      {
+        lcd.print(F("Temp.:"));
+        lcd.setCursor(7,0);
+        lcd.print(temp);
+        lcd.setCursor(0,1);
+        lcd.print(F("Humedad:"));
+        lcd.setCursor(9,1);
+        lcd.print(hum);
+      }
+      num_dis = 3;
+    }
+      else if (num_dis==3)
     {
       // Pagina 3    
       lcd.print(F("SMS: "));
@@ -799,11 +899,11 @@ void LCDStatus()
       else
         lcd.print(F("GSM Conectado"));
       if (alarmas!=0) // Hay alguna alarma activada
-        num_dis = 3;
+        num_dis = 4;
       else
         num_dis = 0;
       
-    } else if (num_dis==3)
+    } else if (num_dis==4)
     {
       // Pagina 4 
       if ((alarmas & 1) == 1)
