@@ -219,22 +219,22 @@ void setup()
   //EEPROM.write(2,'6');
   //EEPROM.write(3,'2');
   //EEPROM.write(4,'2');
-  //EEPROM.write(5,'6');
-  //EEPROM.write(6,'3');
-  //EEPROM.write(7,'7');
-  //EEPROM.write(8,'7');
-  //EEPROM.write(9,'1');
-  //EEPROM.write(10,'1');
+  //EEPROM.write(5,'1');
+  //EEPROM.write(6,'1');
+  //EEPROM.write(7,'3');
+  //EEPROM.write(8,'3');
+  //EEPROM.write(9,'4');
+  //EEPROM.write(10,'4');
   
   //EEPROM.write(11,'6');
   //EEPROM.write(12,'2');
   //EEPROM.write(13,'2');
-  //EEPROM.write(14,'6');
-  //EEPROM.write(15,'3');
-  //EEPROM.write(16,'7');
-  //EEPROM.write(17,'7');
-  //EEPROM.write(18,'1');
-  //EEPROM.write(19,'1');
+  //EEPROM.write(14,'1');
+  //EEPROM.write(15,'1');
+  //EEPROM.write(16,'3');
+  //EEPROM.write(17,'3');
+  //EEPROM.write(18,'4');
+  //EEPROM.write(19,'4');
   
   EEPROM.write(25,70);
   
@@ -711,7 +711,8 @@ String checkBatt(String batt)
         while (n<5)
         {
           s = analogRead(VBATM);
-          vi = (s * 0.0048875)*3.95;
+          
+          vi = (s * 0.004882813)*3.12;
           if (v<vi)
             v = vi;
           delay(50);
@@ -733,7 +734,7 @@ String checkBatt(String batt)
         while (n<5)
         {
           s = analogRead(VBATS);
-          vi = (s * 0.0048875)*3.95;
+          vi = (s * 0.004882813)*3.12;
           if (v<vi)
             v = vi;
           delay(50);
@@ -874,7 +875,7 @@ void LCDStatus()
     } else if (num_dis==2)
     {
       if (isnan(hum) || isnan(temp) ) {
-        lcd.print(F("Error leyendo DHT"));
+        lcd.print(F("Error DHT"));
       } 
       else
       {
